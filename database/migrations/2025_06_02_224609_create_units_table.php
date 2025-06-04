@@ -14,6 +14,7 @@ return new class extends Migration
         Schema::create('units', function (Blueprint $table) {
             $table->id();
             $table->string('name');
+            $table->string('slug')->nullable()->unique(); // tambahkan slug yang unik dan nullable
             $table->string('symbol');
             $table->timestamps();
         });

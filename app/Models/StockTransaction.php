@@ -19,13 +19,14 @@ class StockTransaction extends Model
         return $this->belongsTo(Supplier::class);
     }
 
-    public function items()
-    {
-        return $this->hasMany(StockTransactionItem::class);
-    }
-
     public function user()
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    // Relasi ke detail item transaksi
+    public function items()
+    {
+        return $this->hasMany(StockTransactionItem::class);
     }
 }

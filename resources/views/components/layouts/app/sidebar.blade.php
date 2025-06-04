@@ -18,32 +18,42 @@
                 <flux:navlist.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')"
                     wire:navigate>{{ __('Dashboard') }}</flux:navlist.item>
             </flux:navlist.group>
+            @can('view-data')
             <flux:navlist.group :heading="__('Master Data')" icon="folder" expandable
                 :expanded="request()->routeIs('units.*') || request()->routeIs('brands.*') || request()->routeIs(
                     'items.*')">
+                @can('manage-unit')             
                 <flux:navlist.item icon="table-cells" :href="route('units.index')" :current="request()->routeIs('units.*')"
                     wire:navigate>
                     {{ __('Satuan') }}
                 </flux:navlist.item>
+                @endcan
 
+                @can('manage-brand')    
                 <flux:navlist.item icon="table-cells" :href="route('brands.index')"
                     :current="request()->routeIs('brands.*')" wire:navigate>
                     {{ __('Merek') }}
                 </flux:navlist.item>
+                @endcan
 
+                @can('manage-item')                   
                 <flux:navlist.item icon="table-cells" :href="route('items.index')" :current="request()->routeIs('items.*')"
                     wire:navigate>
                     {{ __('Barang') }}
                 </flux:navlist.item>
+                @endcan
             </flux:navlist.group>
-
+            @endcan
+            
+            @can('manage-supplier')  
             <flux:navlist.item icon="truck" :href="route('suppliers.index')"
                 :current="request()-> routeIs('suppliers.*')" wire:navigate>
                 {{ __('Supplier') }}
             </flux:navlist.item>
+            @endcan
             <flux:navlist.group :heading="__('Transaksi Stok')" icon="folder" expandable
                 :expanded="request()->routeIs('stockin.*') || request()->routeIs('stockout.*') || request()->routeIs(
-                    'stockretur.*')">
+                    'stockretur.*') || request()->routeIs('stockopname.*')">
                 <flux:navlist.item icon="arrow-left" :href="route('stockin.index')" :current="request()->routeIs('stockin.*')"
                     wire:navigate>
                     {{ __('Masuk') }}
@@ -53,13 +63,21 @@
                     :current="request()->routeIs('stockout.*')" wire:navigate>
                     {{ __('Keluar') }}
                 </flux:navlist.item>
-
+                @can('view-retur')    
                 <flux:navlist.item icon="arrows-right-left" :href="route('stockretur.index')" :current="request()->routeIs('stockretur.*')"
                     wire:navigate>
                     {{ __('Retur') }}
                 </flux:navlist.item>
+                @endcan
+                @can('view-stock-opname')    
+                <flux:navlist.item icon="book-open" :href="route('stockopname.index')" :current="request()->routeIs('stockopname.*')"
+                    wire:navigate>
+                    {{ __('Stock Opname') }}
+                </flux:navlist.item>
+                @endcan
             </flux:navlist.group>
 
+            @can('view-laporan') 
             <flux:navlist.group :heading="__('Laporan Stok')" icon="chart-bar" expandable
             :expanded="request()->routeIs('reports.in') || request()->routeIs('reports.out') || request()->routeIs('reports.retur')">
                 <flux:navlist.item icon="arrow-down-tray" :href="route('reports.index', 'in')"
@@ -76,20 +94,35 @@
                     :current="request()->is('reports/retur')" wire:navigate>
                     {{ __('Retur') }}
                 </flux:navlist.item>
+               
             </flux:navlist.group>
+            @endcan
 
+            @can('view-setting')    
             <flux:navlist.group :heading="__('Pengaturan')" icon="wrench" expandable
-                :expanded="request()->routeIs('users.*') || request()->routeIs('companie.*')">
+                :expanded="request()->routeIs('users.*') || request()->routeIs('companie.*')|| request()->routeIs('permissions.*')">
+                @can('manage-users')                   
                 <flux:navlist.item icon="users" :href="route('users.index')" :current="request()->routeIs('users.*')"
                     wire:navigate>
                     {{ __('Karyawan') }}
                 </flux:navlist.item>
+                @endcan
 
+                @can('manage-companie')               
                 <flux:navlist.item icon="building-storefront" :href="route('companie.index')"
                     :current="request()->routeIs('companie.*')" wire:navigate>
                     {{ __('Tentang') }}
                 </flux:navlist.item>
+                @endcan
+
+                @can('manage-permissions')
+                <flux:navlist.item icon="adjustments-horizontal" :href="route('permissions.index')"
+                    :current="request()->routeIs('permissions.*')" wire:navigate>
+                    {{ __('Perizinan Karyawan') }}
+                </flux:navlist.item>
+                @endcan
             </flux:navlist.group>
+            @endcan
 
         </flux:navlist>
 
@@ -150,51 +183,61 @@
         </flux:dropdown>
     </flux:sidebar>
 
-    <!-- Mobile User Menu -->
-    <flux:header class="lg:hidden">
+    <flux:header class="hidden lg:flex justify-end items-center border-b bg-white dark:bg-zinc-800 dark:border-zinc-700 px-6 py-4">
+       <livewire:notifications-bell />
+    </flux:header>
+
+    <!-- Mobile Header with Notification Bell -->
+    <flux:header class="lg:hidden flex items-center justify-between px-4 py-2 border-b bg-white dark:bg-zinc-800 dark:border-zinc-700">
+
+        {{-- Sidebar Toggle --}}
         <flux:sidebar.toggle class="lg:hidden" icon="bars-2" inset="left" />
 
-        <flux:spacer />
+        {{-- Notifikasi Bell --}}
+        <div class="flex items-center space-x-2">
+            <livewire:notifications-bell />
 
-        <flux:dropdown position="top" align="end">
-            <flux:profile :initials="auth()->user()->initials()" icon-trailing="chevron-down" />
+            {{-- Dropdown User --}}
+            <flux:dropdown position="top" align="end">
+                <flux:profile :initials="auth()->user()->initials()" icon-trailing="chevron-down" />
 
-            <flux:menu>
-                <flux:menu.radio.group>
-                    <div class="p-0 text-sm font-normal">
-                        <div class="flex items-center gap-2 px-1 py-1.5 text-start text-sm">
-                            <span class="relative flex h-8 w-8 shrink-0 overflow-hidden rounded-lg">
-                                <span
-                                    class="flex h-full w-full items-center justify-center rounded-lg bg-neutral-200 text-black dark:bg-neutral-700 dark:text-white">
-                                    {{ auth()->user()->initials() }}
+                <flux:menu>
+                    <flux:menu.radio.group>
+                        <div class="p-0 text-sm font-normal">
+                            <div class="flex items-center gap-2 px-1 py-1.5 text-start text-sm">
+                                <span class="relative flex h-8 w-8 shrink-0 overflow-hidden rounded-lg">
+                                    <span
+                                        class="flex h-full w-full items-center justify-center rounded-lg bg-neutral-200 text-black dark:bg-neutral-700 dark:text-white">
+                                        {{ auth()->user()->initials() }}
+                                    </span>
                                 </span>
-                            </span>
 
-                            <div class="grid flex-1 text-start text-sm leading-tight">
-                                <span class="truncate font-semibold">{{ auth()->user()->name }}</span>
-                                <span class="truncate text-xs">{{ auth()->user()->email }}</span>
+                                <div class="grid flex-1 text-start text-sm leading-tight">
+                                    <span class="truncate font-semibold">{{ auth()->user()->name }}</span>
+                                    <span class="truncate text-xs">{{ auth()->user()->email }}</span>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                </flux:menu.radio.group>
+                    </flux:menu.radio.group>
 
-                <flux:menu.separator />
+                    <flux:menu.separator />
 
-                <flux:menu.radio.group>
-                    <flux:menu.item :href="route('settings.profile')" icon="cog" wire:navigate>
-                        {{ __('Settings') }}</flux:menu.item>
-                </flux:menu.radio.group>
+                    <flux:menu.radio.group>
+                        <flux:menu.item :href="route('settings.profile')" icon="cog" wire:navigate>
+                            {{ __('Settings') }}</flux:menu.item>
+                    </flux:menu.radio.group>
 
-                <flux:menu.separator />
+                    <flux:menu.separator />
 
-                <form method="POST" action="{{ route('logout') }}" class="w-full">
-                    @csrf
-                    <flux:menu.item as="button" type="submit" icon="arrow-right-start-on-rectangle" class="w-full">
-                        {{ __('Log Out') }}
-                    </flux:menu.item>
-                </form>
-            </flux:menu>
-        </flux:dropdown>
+                    <form method="POST" action="{{ route('logout') }}" class="w-full">
+                        @csrf
+                        <flux:menu.item as="button" type="submit" icon="arrow-right-start-on-rectangle" class="w-full">
+                            {{ __('Log Out') }}
+                        </flux:menu.item>
+                    </form>
+                </flux:menu>
+            </flux:dropdown>
+        </div>
     </flux:header>
 
     {{ $slot }}

@@ -23,28 +23,4 @@ class Item extends Model
         return $this->belongsTo(Brand::class);
     }
 
-    public function supplier()
-    {
-        return $this->belongsTo(Supplier::class);
-    }
-
-    public function conversions()
-    {
-        return $this->hasMany(UnitConversion::class);
-    }
-
-    public function transactions()
-    {
-        return $this->hasMany(StockTransactionItem::class);
-    }
-
-    public function opnames()
-    {
-        return $this->hasMany(StockOpname::class);
-    }
-
-    public function returns()
-    {
-        return $this->hasMany(Retur::class);
-    }
 }

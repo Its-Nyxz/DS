@@ -8,7 +8,9 @@ use App\Http\Controllers\BrandController;
 use App\Http\Controllers\CompanieController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ReturController;
+use App\Http\Controllers\RoleController;
 use App\Http\Controllers\StockInController;
+use App\Http\Controllers\StockOpnameController;
 use App\Http\Controllers\StockOutController;
 use App\Http\Controllers\StockReturController;
 use App\Http\Controllers\SupplierController;
@@ -44,6 +46,7 @@ Route::resource('transactions', StockTransactionController::class);
 Route::resource('stockin', StockInController::class);
 Route::resource('stockout', StockOutController::class);
 Route::resource('stockretur', ReturController::class);
+Route::resource('stockopname', StockOpnameController::class);
 
 // ✅ Laporan
 Route::get('reports/{type}', [ReportController::class, 'index'])->name('reports.index');
@@ -52,6 +55,8 @@ Route::get('reports/{type}', [ReportController::class, 'index'])->name('reports.
 Route::resource('users', UserController::class);
 // company
 Route::resource('companie', CompanieController::class);
+// role
+Route::resource('permissions', RoleController::class);
 
 
 require __DIR__ . '/auth.php';

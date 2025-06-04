@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Brand;
+use Illuminate\Support\Str;
 use Illuminate\Database\Seeder;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 
@@ -16,7 +17,10 @@ class BrandSeeder extends Seeder
         $brands = ['Holcim', 'Semen Gresik', 'Sanko', 'Krakatau Steel', 'Indocement'];
 
         foreach ($brands as $name) {
-            Brand::firstOrCreate(['name' => $name]);
+            Brand::firstOrCreate(
+                ['name' => $name],
+                ['slug' => Str::slug($name)]
+            );
         }
     }
 }

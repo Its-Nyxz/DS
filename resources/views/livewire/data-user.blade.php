@@ -24,8 +24,17 @@
                             <td class="px-6 py-4">{{ $user->name }}</td>
                             <td class="px-6 py-4">{{ $user->email }}</td>
                             <td class="px-6 py-4">
-                                <button wire:click="edit({{ $user->id }})" class="text-blue-600 hover:underline">
-                                    Edit
+                                {{-- Tombol Edit --}}
+                                <button wire:click="edit({{ $user->id }})"
+                                    class="text-blue-600 hover:text-blue-800 mr-2" title="Edit">
+                                    <i class="fas fa-pen"></i>
+                                </button>
+
+                                {{-- Tombol Hapus --}}
+                                <button
+                                    onclick="confirmAlert('Yakin ingin menghapus User ini?', 'Ya, hapus!', () => @this.call('delete', {{ $user->id }}))"
+                                    class="text-red-600 hover:text-red-800" title="Hapus">
+                                    <i class="fas fa-trash"></i>
                                 </button>
                             </td>
                         </tr>

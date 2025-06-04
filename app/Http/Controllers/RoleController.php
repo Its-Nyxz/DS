@@ -2,18 +2,16 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\StockOpname;
-use App\Http\Requests\StoreStockOpnameRequest;
-use App\Http\Requests\UpdateStockOpnameRequest;
+use Illuminate\Http\Request;
 
-class StockOpnameController extends Controller
+class RoleController extends Controller
 {
     /**
      * Display a listing of the resource.
      */
     public function index()
     {
-        return view("stock-opname.index");
+        return view("permissions.index");
     }
 
     /**
@@ -27,7 +25,7 @@ class StockOpnameController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(StoreStockOpnameRequest $request)
+    public function store(Request $request)
     {
         //
     }
@@ -35,7 +33,7 @@ class StockOpnameController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(StockOpname $stockOpname)
+    public function show(string $id)
     {
         //
     }
@@ -43,7 +41,7 @@ class StockOpnameController extends Controller
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(StockOpname $stockOpname)
+    public function edit(string $id)
     {
         //
     }
@@ -51,7 +49,7 @@ class StockOpnameController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(UpdateStockOpnameRequest $request, StockOpname $stockOpname)
+    public function update(Request $request, string $id)
     {
         //
     }
@@ -59,7 +57,7 @@ class StockOpnameController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(StockOpname $stockOpname)
+    public function destroy(string $id)
     {
         //
     }

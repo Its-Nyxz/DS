@@ -4,6 +4,7 @@ namespace App\Livewire;
 
 use App\Models\User;
 use Livewire\Component;
+use Illuminate\Support\Str;
 use Livewire\Attributes\On;
 use Livewire\WithPagination;
 use Spatie\Permission\Models\Role;
@@ -19,7 +20,9 @@ class DataUser extends Component
 
     public function render()
     {
-        $users = User::query()
+        $users = User::whereDoesntHave('roles', function ($query) {
+            $query->where('name', 'pemilik');
+        })
             ->when($this->search, fn($q) => $q->where('name', 'like', "%{$this->search}%"))
             ->orderBy('name')
             ->paginate(10);
@@ -54,6 +57,7 @@ class DataUser extends Component
             ['id' => $this->userId],
             [
                 'name'     => $this->name,
+                'slug'     => Str::slug($this->name), // ← tambahkan slug
                 'email'    => $this->email,
                 'password' => $this->password ? Hash::make($this->password) : User::find($this->userId)->password,
             ]
@@ -77,5 +81,19 @@ class DataUser extends Component
 
             $this->dispatch('alert-success', ['message' => 'Password berhasil direset ke 12345678.']);
         }
+    }
+
+    public function delete($id)
+    {
+        $user = User::findOrFail($id);
+
+        // Jangan hapus user dengan role 'pemilik' (opsional, sebagai proteksi tambahan)
+        if ($user->hasRole('pemilik')) {
+            $this->dispatch('alert-error', ['message' => 'User dengan role pemilik tidak boleh dihapus.']);
+            return;
+        }
+
+        $user->delete();
+        $this->dispatch('alert-success', ['message' => 'User berhasil dihapus.']);
     }
 }

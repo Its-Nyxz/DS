@@ -13,9 +13,9 @@ class UnitConversion extends Model
     protected $table = "unit_conversions";
     protected $guarded = ['id'];
 
-    public function item()
+    public function itemSupplier()
     {
-        return $this->belongsTo(Item::class);
+        return $this->belongsTo(ItemSupplier::class);
     }
 
     public function fromUnit()

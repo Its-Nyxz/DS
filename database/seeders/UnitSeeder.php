@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Unit;
+use Illuminate\Support\Str;
 use Illuminate\Database\Seeder;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 
@@ -22,7 +23,13 @@ class UnitSeeder extends Seeder
         ];
 
         foreach ($units as $unit) {
-            Unit::firstOrCreate(['symbol' => $unit['symbol']], $unit);
-        }
+    Unit::firstOrCreate(
+        ['symbol' => $unit['symbol']],
+        [
+            'name' => $unit['name'],
+            'slug' => Str::slug($unit['name']),
+        ]
+    );
+}
     }
 }

@@ -15,9 +15,9 @@ return new class extends Migration
             $table->id();
             $table->string('name');
             $table->string('sku')->nullable()->unique();
-            $table->foreignId('unit_id')->constrained('units');
-            $table->foreignId('brand_id')->nullable()->constrained('brands');
-            $table->foreignId('supplier_id')->nullable()->constrained('suppliers');
+            $table->foreignId('unit_id')->constrained('units')->cascadeOnDelete();
+            $table->foreignId('brand_id')->nullable()->constrained('brands')->nullOnDelete();
+            $table->string('img')->nullable();
             $table->integer('stock')->default(0);
             $table->timestamps();
         });

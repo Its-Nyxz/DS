@@ -13,14 +13,13 @@ class StockTransactionItem extends Model
     protected $table = "stock_transaction_items";
     protected $guarded = ['id'];
 
-
     public function transaction()
     {
-        return $this->belongsTo(StockTransaction::class);
+        return $this->belongsTo(StockTransaction::class, 'stock_transaction_id');
     }
 
-    public function item()
+    public function itemSupplier()
     {
-        return $this->belongsTo(Item::class);
+        return $this->belongsTo(ItemSupplier::class, 'item_supplier_id');
     }
 }

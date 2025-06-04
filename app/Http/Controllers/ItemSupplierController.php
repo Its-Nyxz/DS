@@ -2,18 +2,18 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\StockOpname;
-use App\Http\Requests\StoreStockOpnameRequest;
-use App\Http\Requests\UpdateStockOpnameRequest;
+use App\Models\ItemSupplier;
+use App\Http\Requests\StoreItemSupplierRequest;
+use App\Http\Requests\UpdateItemSupplierRequest;
 
-class StockOpnameController extends Controller
+class ItemSupplierController extends Controller
 {
     /**
      * Display a listing of the resource.
      */
     public function index()
     {
-        return view("stock-opname.index");
+        //
     }
 
     /**
@@ -27,7 +27,7 @@ class StockOpnameController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(StoreStockOpnameRequest $request)
+    public function store(StoreItemSupplierRequest $request)
     {
         //
     }
@@ -35,7 +35,7 @@ class StockOpnameController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(StockOpname $stockOpname)
+    public function show(ItemSupplier $itemSupplier)
     {
         //
     }
@@ -43,7 +43,7 @@ class StockOpnameController extends Controller
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(StockOpname $stockOpname)
+    public function edit(ItemSupplier $itemSupplier)
     {
         //
     }
@@ -51,7 +51,7 @@ class StockOpnameController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(UpdateStockOpnameRequest $request, StockOpname $stockOpname)
+    public function update(UpdateItemSupplierRequest $request, ItemSupplier $itemSupplier)
     {
         //
     }
@@ -59,7 +59,7 @@ class StockOpnameController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(StockOpname $stockOpname)
+    public function destroy(ItemSupplier $itemSupplier)
     {
         //
     }
