@@ -13,7 +13,7 @@ class ItemSupplierController extends Controller
      */
     public function index()
     {
-        //
+        return view("item-supplier.index");
     }
 
     /**

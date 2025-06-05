@@ -13,9 +13,11 @@ return new class extends Migration
     {
         Schema::create('stock_transaction_items', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('stock_transaction_id')->constrained('stock_transactions');
-            $table->foreignId('item_supplier_id')->constrained('item_suppliers');
-            $table->integer('quantity');
+            $table->foreignId('stock_transaction_id')->nullable()->constrained('stock_transactions');
+            $table->foreignId('item_id')->nullable()->constrained()->cascadeOnDelete();
+            $table->foreignId('item_supplier_id')->nullable()->constrained('item_suppliers');
+            $table->foreignId('unit_id')->nullable()->constrained('units')->nullOnDelete();
+            $table->integer('quantity')->nullable();
             $table->decimal('unit_price', 12, 2)->nullable();
             $table->decimal('subtotal', 12, 2)->nullable();
             $table->timestamps();

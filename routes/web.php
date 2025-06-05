@@ -6,6 +6,7 @@ use App\Http\Controllers\ItemController;
 use App\Http\Controllers\UnitController;
 use App\Http\Controllers\BrandController;
 use App\Http\Controllers\CompanieController;
+use App\Http\Controllers\ItemSupplierController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ReturController;
 use App\Http\Controllers\RoleController;
@@ -15,6 +16,7 @@ use App\Http\Controllers\StockOutController;
 use App\Http\Controllers\StockReturController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\StockTransactionController;
+use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\UserController;
 
 Route::get('/', function () {
@@ -41,16 +43,28 @@ Route::resource('items', ItemController::class);
 // ✅ Supplier
 Route::resource('suppliers', SupplierController::class);
 
-// ✅ Transaksi
-Route::resource('transactions', StockTransactionController::class);
-Route::resource('stockin', StockInController::class);
-Route::resource('stockout', StockOutController::class);
-Route::resource('stockretur', ReturController::class);
-Route::resource('stockopname', StockOpnameController::class);
+// item supplier
+Route::resource('itemsuppliers', ItemSupplierController::class);
 
-// ✅ Laporan
-Route::get('reports/{type}', [ReportController::class, 'index'])->name('reports.index');
+// ✅ Transaksi
+Route::get('transactions/{type}', [TransactionController::class, 'index'])
+    ->name('transactions.index')
+    ->where('type', 'in|out|retur|opname');
+
+// Route::resource('transactions', TransactionController::class);
+// Route::resource('stockin', StockInController::class);
+// Route::resource('stockout', StockOutController::class);
+// Route::resource('stockretur', ReturController::class);
+// Route::resource('stockopname', StockOpnameController::class);
+
+// ✅ Laporan transaksi
+Route::get('reports/{type}', [ReportController::class, 'index'])
+    ->name('reports.index')
+    ->where('type', 'in|out|retur');
 // Route::resource('reports', ReportController::class);
+
+// laporan stok
+Route::resource('reportstock', StockTransactionController::class);
 // user
 Route::resource('users', UserController::class);
 // company

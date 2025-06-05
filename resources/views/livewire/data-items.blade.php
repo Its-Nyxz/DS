@@ -19,6 +19,7 @@
                         <th class="p-2 text-left">Nama</th>
                         <th class="p-2 text-left">Satuan</th>
                         <th class="p-2 text-left">Merek</th>
+                        <th class="p-2 text-left">Stock Minim</th>
                         <th class="p-2 text-left">Aksi</th>
                     </tr>
                 </thead>
@@ -38,6 +39,7 @@
                             <td class="p-2">{{ $item->name }}</td>
                             <td class="p-2">{{ $item->unit->symbol ?? '-' }}</td>
                             <td class="p-2">{{ $item->brand->name ?? '-' }}</td>
+                            <td class="p-2">{{ $item->min_stock ?? '-' }}</td>
                             <td class="p-2 space-x-2">
                                 <button wire:click="edit({{ $item->id }})"
                                     class="text-yellow-600 hover:text-white hover:bg-yellow-600 p-1 rounded transition"
@@ -78,7 +80,7 @@
                 {{-- Nama --}}
                 <div class="mb-4">
                     <label class="block mb-1">Nama</label>
-                    <input type="text" wire:model.defer="name"
+                    <input type="text" wire:model.live="name"
                         class="w-full border rounded px-3 py-2 dark:bg-zinc-800 dark:text-white">
                     @error('name')
                         <small class="text-red-500">{{ $message }}</small>
@@ -123,6 +125,16 @@
                             @endforeach
                         </ul>
                     @endif
+                </div>
+
+                {{-- Min Stock --}}
+                <div class="mb-4">
+                    <label class="block mb-1">Stock Minimal</label>
+                    <input type="number" wire:model.live="min_stock"
+                        class="w-full border rounded px-3 py-2 dark:bg-zinc-800 dark:text-white">
+                    @error('min_stock')
+                        <small class="text-red-500">{{ $message }}</small>
+                    @enderror
                 </div>
 
 

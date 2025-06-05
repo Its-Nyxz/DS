@@ -2,13 +2,16 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Relations\Pivot;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
-class ItemSupplier extends Model
+class ItemSupplier extends Pivot
 {
     /** @use HasFactory<\Database\Factories\ItemSupplierFactory> */
-    use HasFactory;
+    // use HasFactory;
+    use SoftDeletes;
 
     protected $table = "item_suppliers";
     protected $guarded = ['id'];
@@ -47,8 +50,8 @@ class ItemSupplier extends Model
         return $this->hasMany(Retur::class);
     }
 
-    public function conversions()
+    public function unitConversions()
     {
-        return $this->hasMany(UnitConversion::class);
+        return $this->hasMany(UnitConversion::class, 'item_supplier_id');
     }
 }

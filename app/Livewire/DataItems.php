@@ -16,7 +16,7 @@ class DataItems extends Component
     use WithPagination, WithFileUploads;
 
 
-    public $name, $unit, $brand, $img, $itemId;
+    public $name, $unit, $brand, $img, $itemId, $min_stock;
     public $isModalOpen = false;
     public $search = '';
     public $brands, $units;
@@ -113,6 +113,7 @@ class DataItems extends Component
 
         $this->itemId = $item->id;
         $this->name = $item->name;
+        $this->min_stock = $item->min_stock;
 
         // ID untuk disimpan
         $this->unit = $item->unit_id;
@@ -127,10 +128,32 @@ class DataItems extends Component
 
     public function save()
     {
+        // Cek dan buat merek baru jika perlu
+        if (!is_numeric($this->brand) && !empty($this->brand_name)) {
+            $slug = Str::slug($this->brand_name);
+            $brand = Brand::firstOrCreate(['slug' => $slug], [
+                'name' => $this->brand_name,
+                'slug' => $slug,
+                'symbol' => strtoupper(substr($this->unit_name, 0, 3)) // Atau sesuaikan dengan logika simbol
+            ]);
+            $this->brand = $brand->id;
+        }
+
+        // Cek dan buat satuan baru jika perlu
+        if (!is_numeric($this->unit) && !empty($this->unit_name)) {
+            $slug = Str::slug($this->unit_name);
+            $unit = Unit::firstOrCreate(['slug' => $slug], [
+                'name' => $this->unit_name,
+                'slug' => $slug,
+            ]);
+            $this->unit = $unit->id;
+        }
+
         $this->validate([
             'name' => 'required|string|max:255',
             'unit' => 'required|exists:units,id',
             'brand' => 'nullable|exists:brands,id',
+            'min_stock' => 'nullable|integer|min:0',
             'img' => 'nullable|image|max:2048', // <= Validasi upload
         ]);
 
@@ -149,27 +172,11 @@ class DataItems extends Component
         // Slug & SKU
         $item->sku = $item->exists ? $item->sku : $this->generateSKU($this->name);
         $item->name = $this->name;
-        // Cek dan buat merek baru jika perlu
-        if (!is_numeric($this->brand) && !empty($this->brand_name)) {
-            $slug = Str::slug($this->brand_name);
-            $brand = Brand::firstOrCreate(['slug' => $slug], [
-                'name' => $this->brand_name,
-                'slug' => $slug,
-            ]);
-            $this->brand = $brand->id;
-        }
 
-        // Cek dan buat satuan baru jika perlu
-        if (!is_numeric($this->unit) && !empty($this->unit_name)) {
-            $slug = Str::slug($this->unit_name);
-            $unit = Unit::firstOrCreate(['slug' => $slug], [
-                'name' => $this->unit_name,
-                'slug' => $slug,
-            ]);
-            $this->unit = $unit->id;
-        }
         $item->unit_id = $this->unit;
         $item->brand_id = $this->brand;
+        $item->min_stock = $this->min_stock;
+
 
         // Gambar baru?
         if ($this->img) {
@@ -215,6 +222,7 @@ class DataItems extends Component
             'brand',
             'brand_name',
             'itemId',
+            'min_stock',
             'img',
             'isModalOpen'
         ]);

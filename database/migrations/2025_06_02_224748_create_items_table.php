@@ -18,7 +18,7 @@ return new class extends Migration
             $table->foreignId('unit_id')->constrained('units')->cascadeOnDelete();
             $table->foreignId('brand_id')->nullable()->constrained('brands')->nullOnDelete();
             $table->string('img')->nullable();
-            $table->integer('stock')->default(0);
+            $table->integer('min_stock')->default(0);
             $table->timestamps();
         });
     }

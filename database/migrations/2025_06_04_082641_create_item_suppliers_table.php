@@ -17,7 +17,11 @@ return new class extends Migration
             $table->foreignId('supplier_id')->constrained('suppliers')->cascadeOnDelete();
             $table->decimal('harga_beli', 12, 2)->nullable();
             $table->boolean('is_default')->default(false); // optional: supplier utama
+            $table->integer('min_qty')->nullable();
+            $table->integer('lead_time_days')->nullable();
+            $table->text('catatan')->nullable();
             $table->timestamps();
+            $table->softDeletes();
 
             $table->unique(['item_id', 'supplier_id']); // mencegah duplikasi data item-supplier
         });

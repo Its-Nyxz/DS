@@ -14,10 +14,15 @@ return new class extends Migration
         Schema::create('stock_transactions', function (Blueprint $table) {
             $table->id();
             $table->foreignId('supplier_id')->nullable()->constrained('suppliers');
+            $table->string('transaction_code')->unique();
+            $table->date('transaction_date')->nullable();
             $table->enum('type', ['in', 'out', 'adjustment', 'retur_in', 'retur_out']);
             $table->string('reference')->nullable();
+            $table->boolean('is_approved')->default(false);
             $table->text('description')->nullable();
-            $table->foreignId('created_by')->constrained('users');
+            $table->foreignId('created_by')->nullable()->constrained('users');
+            $table->foreignId('approved_by')->nullable()->constrained('users');
+            $table->timestamp('approved_at')->nullable();
             $table->timestamps();
         });
     }

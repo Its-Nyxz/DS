@@ -14,16 +14,9 @@ class ReportController extends Controller
             abort(404);
         }
 
-        // Ambil data sesuai tipe
-        $data = match ($type) {
-            'in' => StockTransaction::where('type', 'in')->get(),
-            'out' => StockTransaction::where('type', 'out')->get(),
-            'retur' => StockTransaction::where('type', 'retur')->get(),
-        };
 
         return view('reports.index', [
             'type' => $type,
-            'transactions' => $data,
         ]);
     }
 }

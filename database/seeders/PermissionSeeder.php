@@ -20,7 +20,7 @@ class PermissionSeeder extends Seeder
             'view-setting',
             'view-data',
             'view-retur',
-            'view-stock-opname',
+            'view-opname',
             'create-transaksi',
             'edit-transaksi',
             'delete-transaksi',
@@ -30,6 +30,7 @@ class PermissionSeeder extends Seeder
             'manage-brand',
             'manage-item',
             'manage-supplier',
+            'manage-supplier-item',
             'manage-companie',
             'manage-permissions',
         ];
@@ -51,7 +52,7 @@ class PermissionSeeder extends Seeder
             'view-setting',
             'view-data',
             'view-retur',
-            'view-stock-opname',
+            'view-opname',
             'edit-transaksi',
             'delete-transaksi',
             'approve-transaksi',
@@ -60,6 +61,7 @@ class PermissionSeeder extends Seeder
             'manage-unit',
             'manage-brand',
             'manage-supplier',
+            'manage-supplier-item',
             'manage-companie',
             'manage-permissions',
         ]);
@@ -67,7 +69,7 @@ class PermissionSeeder extends Seeder
         $admin->syncPermissions([
             'view-laporan',
             'view-retur',
-            'view-stock-opname',
+            'view-opname',
             'create-transaksi',
             'edit-transaksi',
             'delete-transaksi',

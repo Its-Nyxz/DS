@@ -7,6 +7,7 @@ import "flowbite";
 // Alpine.start();
 import { DataTable } from "simple-datatables";
 import Swal from "sweetalert2";
+// import "select2";
 window.Swal = Swal;
 window.DataTable = DataTable;
 

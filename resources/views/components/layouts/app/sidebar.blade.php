@@ -21,7 +21,7 @@
             @can('view-data')
             <flux:navlist.group :heading="__('Master Data')" icon="folder" expandable
                 :expanded="request()->routeIs('units.*') || request()->routeIs('brands.*') || request()->routeIs(
-                    'items.*')">
+                    'suppliers.*') || request()->routeIs('items.*')">
                 @can('manage-unit')             
                 <flux:navlist.item icon="table-cells" :href="route('units.index')" :current="request()->routeIs('units.*')"
                     wire:navigate>
@@ -30,69 +30,83 @@
                 @endcan
 
                 @can('manage-brand')    
-                <flux:navlist.item icon="table-cells" :href="route('brands.index')"
+                <flux:navlist.item icon="tag" :href="route('brands.index')"
                     :current="request()->routeIs('brands.*')" wire:navigate>
                     {{ __('Merek') }}
                 </flux:navlist.item>
                 @endcan
+                
+                @can('manage-supplier')  
+                <flux:navlist.item icon="truck" :href="route('suppliers.index')"
+                    :current="request()-> routeIs('suppliers.*')" wire:navigate>
+                    {{ __('Supplier') }}
+                </flux:navlist.item>
+                @endcan
 
                 @can('manage-item')                   
-                <flux:navlist.item icon="table-cells" :href="route('items.index')" :current="request()->routeIs('items.*')"
+                <flux:navlist.item icon="cube" :href="route('items.index')" :current="request()->routeIs('items.*')"
                     wire:navigate>
                     {{ __('Barang') }}
                 </flux:navlist.item>
                 @endcan
             </flux:navlist.group>
             @endcan
-            
-            @can('manage-supplier')  
-            <flux:navlist.item icon="truck" :href="route('suppliers.index')"
-                :current="request()-> routeIs('suppliers.*')" wire:navigate>
-                {{ __('Supplier') }}
-            </flux:navlist.item>
+
+            @can('manage-supplier-item')  
+                <flux:navlist.item icon="link" :href="route('itemsuppliers.index')"
+                    :current="request()-> routeIs('itemsuppliers.*')" wire:navigate>
+                    {{ __('Supplier Barang') }}
+                </flux:navlist.item>
             @endcan
+
             <flux:navlist.group :heading="__('Transaksi Stok')" icon="folder" expandable
-                :expanded="request()->routeIs('stockin.*') || request()->routeIs('stockout.*') || request()->routeIs(
-                    'stockretur.*') || request()->routeIs('stockopname.*')">
-                <flux:navlist.item icon="arrow-left" :href="route('stockin.index')" :current="request()->routeIs('stockin.*')"
-                    wire:navigate>
+                :expanded="request()->routeIs('transactions.index')">
+                 <flux:navlist.item icon="arrow-left" :href="route('transactions.index', ['type' => 'in'])"
+                    :current="request()->is('transactions/in')" wire:navigate>
                     {{ __('Masuk') }}
                 </flux:navlist.item>
 
-                <flux:navlist.item icon="arrow-right" :href="route('stockout.index')"
-                    :current="request()->routeIs('stockout.*')" wire:navigate>
+                <flux:navlist.item icon="arrow-right" :href="route('transactions.index', ['type' => 'out'])"
+                    :current="request()->is('transactions/out')" wire:navigate>
                     {{ __('Keluar') }}
                 </flux:navlist.item>
+
                 @can('view-retur')    
-                <flux:navlist.item icon="arrows-right-left" :href="route('stockretur.index')" :current="request()->routeIs('stockretur.*')"
-                    wire:navigate>
-                    {{ __('Retur') }}
-                </flux:navlist.item>
+                    <flux:navlist.item icon="arrows-right-left" :href="route('transactions.index', ['type' => 'retur'])"
+                        :current="request()->is('transactions/retur')" wire:navigate>
+                        {{ __('Retur') }}
+                    </flux:navlist.item>
                 @endcan
-                @can('view-stock-opname')    
-                <flux:navlist.item icon="book-open" :href="route('stockopname.index')" :current="request()->routeIs('stockopname.*')"
-                    wire:navigate>
-                    {{ __('Stock Opname') }}
-                </flux:navlist.item>
+
+                @can('view-opname')    
+                    <flux:navlist.item icon="book-open" :href="route('transactions.index', ['type' => 'opname'])"
+                        :current="request()->is('transactions/opname')" wire:navigate>
+                        {{ __('Opname') }}
+                    </flux:navlist.item>
                 @endcan
             </flux:navlist.group>
 
             @can('view-laporan') 
-            <flux:navlist.group :heading="__('Laporan Stok')" icon="chart-bar" expandable
-            :expanded="request()->routeIs('reports.in') || request()->routeIs('reports.out') || request()->routeIs('reports.retur')">
-                <flux:navlist.item icon="arrow-down-tray" :href="route('reports.index', 'in')"
+            <flux:navlist.group :heading="__('Laporan')" icon="chart-bar" expandable
+                :expanded="request()->routeIs('reports.index') || request()->routeIs('reportstock.*')">
+                <flux:navlist.item icon="arrow-down-tray" :href="route('reports.index', ['type' => 'in'])"
                     :current="request()->is('reports/in')" wire:navigate>
                     {{ __('Barang Masuk') }}
                 </flux:navlist.item>
 
-                <flux:navlist.item icon="arrow-up-tray" :href="route('reports.index', 'out')"
+                <flux:navlist.item icon="arrow-up-tray" :href="route('reports.index', ['type' => 'out'])"
                     :current="request()->is('reports/out')" wire:navigate>
                     {{ __('Barang Keluar') }}
                 </flux:navlist.item>
 
-                <flux:navlist.item icon="arrow-uturn-left" :href="route('reports.index', 'retur')"
+                <flux:navlist.item icon="arrow-uturn-left" :href="route('reports.index', ['type' => 'retur'])"
                     :current="request()->is('reports/retur')" wire:navigate>
                     {{ __('Retur') }}
+                </flux:navlist.item>
+                
+                <flux:navlist.item icon="chart-bar" :href="route('reportstock.index')" :current="request()->routeIs('reportstock.*')"
+                    wire:navigate>
+                    {{ __('Stok') }}
                 </flux:navlist.item>
                
             </flux:navlist.group>

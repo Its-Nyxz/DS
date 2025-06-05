@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->string('name');
             $table->string('slug')->nullable()->unique(); // tambahkan slug yang unik dan nullable
-            $table->string('symbol');
+            $table->string('symbol')->nullable();
             $table->timestamps();
         });
     }
