@@ -31,4 +31,9 @@ class Item extends Model
             ->withPivot(['harga_beli', 'is_default', 'min_qty', 'lead_time_days', 'catatan'])
             ->withTimestamps();
     }
+
+    public function stockTransactions()
+    {
+        return $this->hasMany(StockTransactionItem::class);
+    }
 }
