@@ -14,6 +14,7 @@ return new class extends Migration
         Schema::create('stock_transactions', function (Blueprint $table) {
             $table->id();
             $table->foreignId('supplier_id')->nullable()->constrained('suppliers');
+            $table->foreignId('customer_id')->nullable()->constrained()->onDelete('set null');
             $table->string('transaction_code')->unique();
             $table->date('transaction_date')->nullable();
             $table->enum('type', ['in', 'out', 'adjustment', 'retur_in', 'retur_out']);
@@ -24,6 +25,7 @@ return new class extends Migration
             $table->foreignId('approved_by')->nullable()->constrained('users');
             $table->timestamp('approved_at')->nullable();
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 

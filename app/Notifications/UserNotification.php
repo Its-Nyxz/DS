@@ -13,16 +13,17 @@ class UserNotification extends Notification
 
     public $message;
     public $url;
+    public $title;
 
     /**
      * Create a new notification instance.
      */
-    public function __construct($message, $url) // ✅ Terima parameter di constructor
+    public function __construct($message, $url = '', $title = 'Notifikasi')
     {
         $this->message = $message;
-        $this->url = $url ?? '';
+        $this->url = $url;
+        $this->title = $title;
     }
-
     /**
      * Get the notification's delivery channels.
      *
@@ -52,8 +53,9 @@ class UserNotification extends Notification
     public function toArray(object $notifiable): array
     {
         return [
+            'title' => $this->title,
             'message' => $this->message,
-            'url' => $this->url, // Tautan in-app
+            'url' => $this->url,
         ];
     }
 }

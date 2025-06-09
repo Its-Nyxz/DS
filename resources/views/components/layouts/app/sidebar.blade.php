@@ -87,7 +87,7 @@
             </flux:navlist.group>
 
             @can('view-laporan') 
-            <flux:navlist.group :heading="__('Laporan')" icon="chart-bar" expandable
+            {{-- <flux:navlist.group :heading="__('Laporan')" icon="chart-bar" expandable
                 :expanded="request()->routeIs('reports.index') || request()->routeIs('reportstock.*')">
                 <flux:navlist.item icon="arrow-down-tray" :href="route('reports.index', ['type' => 'in'])"
                     :current="request()->is('reports/in')" wire:navigate>
@@ -103,13 +103,11 @@
                     :current="request()->is('reports/retur')" wire:navigate>
                     {{ __('Retur') }}
                 </flux:navlist.item>
-                
-                <flux:navlist.item icon="chart-bar" :href="route('reportstock.index')" :current="request()->routeIs('reportstock.*')"
-                    wire:navigate>
-                    {{ __('Stok') }}
-                </flux:navlist.item>
-               
-            </flux:navlist.group>
+            </flux:navlist.group> --}}
+            <flux:navlist.item icon="chart-bar" :href="route('reportstock.index')" :current="request()->routeIs('reportstock.*')"
+                wire:navigate>
+                {{ __('Laporan Stok') }}
+            </flux:navlist.item>
             @endcan
 
             @can('view-setting')    

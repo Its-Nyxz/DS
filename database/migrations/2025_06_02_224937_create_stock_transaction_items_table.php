@@ -17,10 +17,12 @@ return new class extends Migration
             $table->foreignId('item_id')->nullable()->constrained()->cascadeOnDelete();
             $table->foreignId('item_supplier_id')->nullable()->constrained('item_suppliers');
             $table->foreignId('unit_id')->nullable()->constrained('units')->nullOnDelete();
+            $table->foreignId('selected_unit_id')->nullable()->constrained('units')->nullOnDelete();
             $table->integer('quantity')->nullable();
             $table->decimal('unit_price', 12, 2)->nullable();
             $table->decimal('subtotal', 12, 2)->nullable();
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 

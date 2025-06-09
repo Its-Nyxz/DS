@@ -12,6 +12,7 @@ class UnitConversion extends Model
 
     protected $table = "unit_conversions";
     protected $guarded = ['id'];
+    protected $fillable = ['from_unit_id', 'to_unit_id', 'factor', 'item_supplier_id'];
 
     public function itemSupplier()
     {

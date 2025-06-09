@@ -24,9 +24,10 @@ class DataItemSupplier extends Component
         'itemInputs.*.item_id' => 'required|exists:items,id',
         'itemInputs.*.harga_beli' => 'nullable|numeric|min:0',
         'itemInputs.*.is_default' => 'boolean',
-        'itemInputs.*.conversion.from_unit_id' => 'nullable|numeric|exists:units,id',
-        'itemInputs.*.conversion.to_unit_id' => 'nullable|numeric|exists:units,id',
-        'itemInputs.*.conversion.factor' => 'nullable|numeric|min:0.01',
+
+        // ✅ Validasi konversi ganda:
+        'itemInputs.*.conversions.*.to_unit_id' => 'nullable|exists:units,id|required_with:itemInputs.*.conversions.*.factor',
+        'itemInputs.*.conversions.*.factor' => 'nullable|numeric|min:0.0001|required_with:itemInputs.*.conversions.*.to_unit_id',
     ];
 
     public $supplier_name = '';
@@ -44,7 +45,18 @@ class DataItemSupplier extends Component
         }
 
         if ($field === 'item') {
-            $query = Item::where('name', 'like', "%$value%")->pluck('name');
+            $query = Item::with('brand')
+                ->where(function ($q) use ($value) {
+                    $q->where('name', 'like', "%$value%")
+                        ->orWhereHas('brand', fn($q) => $q->where('name', 'like', "%$value%"));
+                })
+                ->limit(10)
+                ->get()
+                ->map(fn($item) => [
+                    'id' => $item->id,
+                    'label' => $item->name . ' - ' . ($item->brand->name ?? '-'),
+                ]);
+
             $this->suggestions['item'][$index] = $query->toArray();
         }
     }
@@ -68,10 +80,10 @@ class DataItemSupplier extends Component
         }
 
         if ($field === 'item') {
-            $item = Item::where('name', $value)->first();
+            $item = Item::find($value); // $value adalah ID
             if ($item) {
                 $this->itemInputs[$indexOrValue]['item_id'] = $item->id;
-                $this->itemInputs[$indexOrValue]['item_name'] = $item->name;
+                $this->itemInputs[$indexOrValue]['item_name'] = $item->name . ' - ' . ($item->brand->name ?? '-');
             }
             $this->suggestions['item'][$indexOrValue] = [];
         }
@@ -126,7 +138,7 @@ class DataItemSupplier extends Component
 
             $this->itemInputs[] = [
                 'item_id' => $item->id,
-                'item_name' => $item->name,
+                'item_name' => $item->name . ' - ' . ($item->brand->name ?? '-'),
                 'harga_beli' => $item->pivot->harga_beli,
                 'is_default' => (bool) $item->pivot->is_default,
                 'min_qty' => $item->pivot->min_qty,
@@ -149,10 +161,8 @@ class DataItemSupplier extends Component
             'min_qty' => null,
             'lead_time_days' => null,
             'catatan' => '',
-            'conversion' => [
-                'from_unit_id' => null,
-                'to_unit_id' => null,
-                'factor' => null,
+            'conversions' => [
+                ['to_unit_id' => null, 'factor' => null]
             ],
         ];
     }
@@ -171,70 +181,114 @@ class DataItemSupplier extends Component
         $this->itemInputs = array_values($this->itemInputs); // Reindex
     }
 
+    protected function syncItemSupplier(array $input): ?ItemSupplier
+    {
+        if (empty($input['item_id']) || !is_numeric($input['item_id'])) {
+            return null;
+        }
+
+        return ItemSupplier::withTrashed()->updateOrCreate(
+            [
+                'supplier_id' => $this->supplierId,
+                'item_id' => $input['item_id'],
+            ],
+            [
+                'harga_beli' => $input['harga_beli'] ?? 0,
+                'is_default' => $input['is_default'] ?? false,
+                'min_qty' => $input['min_qty'] ?? 0,
+                'lead_time_days' => $input['lead_time_days'] ?? 0,
+                'catatan' => $input['catatan'] ?? '',
+                'deleted_at' => null,
+            ]
+        );
+    }
+
+    protected function syncConversions(ItemSupplier $itemSupplier, array $input): void
+    {
+        $item = Item::find($input['item_id'] ?? null);
+        if (!$item || !$item->unit_id) {
+            logger()->warning('Item atau unit_id tidak valid.', ['input' => $input]);
+            return;
+        }
+
+        $fromUnitId = $item->unit_id;
+
+        $itemSupplier->unitConversions()->delete();
+
+        $conversions = $input['conversions'] ?? [];
+
+        foreach ($conversions as $conv) {
+            $toUnitId = $conv['to_unit_id'] ?? null;
+            $factor = $conv['factor'] ?? null;
+
+            if ($toUnitId && is_numeric($factor) && $factor > 0) {
+                try {
+                    $itemSupplier->unitConversions()->create([
+                        'from_unit_id' => $fromUnitId,
+                        'to_unit_id' => $toUnitId,
+                        'factor' => $factor,
+                    ]);
+                } catch (\Throwable $e) {
+                    logger()->error('Gagal simpan konversi.', [
+                        'item_supplier_id' => $itemSupplier->id,
+                        'conv' => $conv,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+        }
+    }
+
     public function save()
     {
+        foreach ($this->itemInputs as &$item) {
+            if (!isset($item['conversions']) || !is_array($item['conversions'])) {
+                $item['conversions'] = [['to_unit_id' => null, 'factor' => null]];
+            }
+        }
+
         $this->validate();
 
         $submittedItemIds = collect($this->itemInputs)->pluck('item_id')->filter()->unique()->values();
 
         foreach ($this->itemInputs as $input) {
-            $itemSupplier = ItemSupplier::withTrashed()->updateOrCreate(
-                [
-                    'supplier_id' => $this->supplierId,
-                    'item_id' => $input['item_id'],
-                ],
-                [
-                    'harga_beli' => $input['harga_beli'],
-                    'is_default' => $input['is_default'],
-                    'min_qty' => $input['min_qty'],
-                    'lead_time_days' => $input['lead_time_days'],
-                    'catatan' => $input['catatan'],
-                    'deleted_at' => null, // restore kalau soft deleted
-                ]
-            );
+            $itemSupplier = $this->syncItemSupplier($input);
 
-            $itemSupplier->refresh();
-
-            if (isset($input['conversions']) && is_array($input['conversions'])) {
-                $item = Item::find($input['item_id']);
-                $fromUnitId = $item?->unit_id;
-
-                // Reset konversi sebelumnya
-                $itemSupplier->unitConversions()->delete();
-
-                foreach ($input['conversions'] as $conv) {
-                    if (isset($conv['to_unit_id'], $conv['factor'])) {
-                        $itemSupplier->unitConversions()->create([
-                            'from_unit_id' => $fromUnitId,
-                            'to_unit_id' => $conv['to_unit_id'],
-                            'factor' => $conv['factor'],
-                            'item_supplier_id' => $itemSupplier->id,
-                        ]);
-                    }
-                }
-            }
-
-            $deletedItemIds = collect($this->existingItemIds)->diff($submittedItemIds);
-
-            foreach ($deletedItemIds as $deletedItemId) {
-                ItemSupplier::where('supplier_id', $this->supplierId)
-                    ->where('item_id', $deletedItemId)
-                    ->update(['deleted_at' => now()]);
+            if ($itemSupplier) {
+                $this->syncConversions($itemSupplier, $input);
+            } else {
+                logger()->warning('Gagal membuat itemSupplier untuk:', $input);
             }
         }
 
-        $this->dispatch('alert-success', ['message' => 'Relasi supplier dan barang berhasil disimpan.']);
+        $this->softDeleteMissingItems($submittedItemIds);
+
         $this->resetForm();
+
+        $this->dispatch('alert-success', ['message' => 'Relasi supplier dan barang berhasil disimpan.']);
     }
 
-    public function deleteAll($supplierId, $itemId)
+    protected function softDeleteMissingItems($submittedItemIds): void
     {
-        ItemSupplier::where([
-            'supplier_id' => $supplierId,
-            'item_id' => $itemId,
-        ])->update(['deleted_at' => now()]);
+        $deletedItemIds = collect($this->existingItemIds)->diff($submittedItemIds);
 
-        $this->dispatch('alert-success', ['message' => 'Relasi berhasil dihapus.']);
+        foreach ($deletedItemIds as $deletedItemId) {
+            ItemSupplier::where('supplier_id', $this->supplierId)
+                ->where('item_id', $deletedItemId)
+                ->update(['deleted_at' => now()]);
+        }
+    }
+
+    public function deleteAll($supplierId)
+    {
+        $itemSuppliers = ItemSupplier::where('supplier_id', $supplierId)->get();
+
+        foreach ($itemSuppliers as $itemSupplier) {
+            $itemSupplier->unitConversions()->delete(); // hapus konversi
+            $itemSupplier->update(['deleted_at' => now()]); // soft delete
+        }
+
+        $this->dispatch('alert-success', ['message' => 'Semua relasi dan konversi berhasil dihapus.']);
     }
 
     public function restore($supplierId, $itemId)

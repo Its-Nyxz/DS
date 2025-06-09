@@ -14,20 +14,25 @@
         class="absolute right-0 mt-2 w-72 bg-white dark:bg-zinc-800 shadow-lg rounded z-50">
         <div class="flex justify-between items-center px-4 py-2 border-b dark:border-zinc-700 text-sm font-semibold">
             <span>Notifikasi</span>
-            <button wire:click="markAsRead" class="text-xs text-blue-500 hover:underline">
+            <button wire:click="markAsRead" class="text-sm text-blue-500 hover:underline">
                 Tandai dibaca
             </button>
         </div>
 
         <ul class="max-h-64 overflow-y-auto">
             @forelse ($notifications as $notif)
-                <li wire:click="markAsRead('{{ $notif->id }}')"
-                    class="px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-zinc-700 cursor-pointer">
-                    <div class="font-medium">{{ $notif->data['title'] ?? 'Notifikasi' }}</div>
-                    <div class="text-xs text-gray-500">{{ $notif->data['message'] ?? '-' }}</div>
+                <li @click.prevent="
+                        $wire.markAsRead('{{ $notif->id }}').then(() => {
+                            window.location.href = '{{ $notif->data['url'] ?? '#' }}';
+                        })
+                    "
+                    class="px-4 py-2 text-md hover:bg-gray-100 dark:hover:bg-zinc-700 cursor-pointer">
+
+                    <div class="font-medium">{!! $notif->data['title'] ?? 'Notifikasi' !!}</div>
+                    <div class="text-sm text-gray-300">{!! $notif->data['message'] ?? '-' !!}</div>
                 </li>
             @empty
-                <li class="px-4 py-2 text-sm text-gray-500 text-center">
+                <li class="px-4 py-2 text-sm text-gray-300 text-center">
                     Tidak ada notifikasi
                 </li>
             @endforelse

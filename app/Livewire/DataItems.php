@@ -22,6 +22,8 @@ class DataItems extends Component
     public $brands, $units;
     public $brand_name = '';
     public $unit_name = '';
+    public $orderBy = 'created_at';
+    public $orderDirection = 'desc';
     public $suggestions = [
         'brand' => [],
         'unit' => [],
@@ -91,7 +93,7 @@ class DataItems extends Component
                         $q->where('name', 'like', '%' . $this->search . '%');
                     });
             })
-            ->orderBy('name')
+            ->orderBy($this->orderBy, $this->orderDirection)
             ->paginate(10);
 
         return view('livewire.data-items', [

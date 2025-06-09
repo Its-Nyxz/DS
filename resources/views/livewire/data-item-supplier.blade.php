@@ -50,7 +50,8 @@
                                                 <tbody>
                                                     @foreach ($supplier->items as $item)
                                                         <tr>
-                                                            <td class="p-2 border">{{ $item->name }}</td>
+                                                            <td class="p-2 border">
+                                                                {{ $item->name }} - {{ $item->brand->name }}</td>
                                                             <td class="p-2 border">Rp
                                                                 {{ number_format($item->pivot->harga_beli ?? 0, 0) }}
                                                             </td>
@@ -82,9 +83,9 @@
                                 </button>
 
                                 <button type="button"
-                                    onclick="confirmAlert('Hapus semua relasi dari {{ $supplier->name }}?', 'Ya, hapus!', () => @this.call('deleteAll', {{ $supplier->id }}))"
+                                    onclick="confirmAlert('Hapus semua Data dari {{ $supplier->name }}?', 'Ya, hapus!', () => @this.call('deleteAll', {{ $supplier->id }}))"
                                     class="text-red-600 hover:text-white hover:bg-red-600 px-2 py-1 rounded transition"
-                                    title="Hapus Semua Relasi Supplier">
+                                    title="Hapus Semua Data Supplier">
                                     <i class="fas fa-trash-alt"></i>
                                 </button>
                             </td>
@@ -92,7 +93,7 @@
                     @empty
                         <tr>
                             <td colspan="2" class="text-center py-4 text-gray-500">
-                                Tidak ada data relasi ditemukan.
+                                Tidak ada Data ditemukan.
                             </td>
                         </tr>
                     @endforelse
@@ -118,32 +119,36 @@
                 {{-- Scrollable Modal Body --}}
                 <div class="overflow-y-auto max-h-[70vh] sm:max-h-[75vh] pb-24 space-y-3">
                     <h2 class="text-xl font-semibold mb-4">
-                        {{ $supplierId ? 'Edit Relasi' : 'Tambah Relasi' }}
+                        {{ $supplierId ? 'Edit Data' : 'Tambah Data' }}
                     </h2>
 
                     {{-- Supplier --}}
                     <div class="mb-4 relative">
-                        <label class="block mb-1">Pilih Supplier</label>
+                        <label class="block mb-1 text-white">Pilih Supplier</label>
                         <input type="text" wire:model.live="supplier_name"
                             wire:focus="fetchSuggestions('supplier', supplier_name)"
                             wire:input="fetchSuggestions('supplier', $event.target.value)"
-                            wire:blur="hideSuggestions('supplier')" class="w-full border rounded px-3 py-2"
+                            wire:blur="hideSuggestions('supplier')"
+                            class="w-full border rounded px-3 py-2 dark:bg-zinc-800 dark:text-white"
                             placeholder="Cari Supplier..." autocomplete="off">
 
                         @if (!empty($suggestions['supplier']))
-                            <ul class="absolute z-10 bg-white border w-full mt-1 rounded shadow text-sm">
+                            <ul
+                                class="absolute z-10 w-full mt-1 rounded shadow text-sm border bg-white dark:bg-zinc-700 dark:text-white">
                                 @foreach ($suggestions['supplier'] as $suggestion)
                                     <li wire:click="selectSuggestion('supplier', '{{ $suggestion }}')"
-                                        class="px-3 py-2 hover:bg-gray-100 cursor-pointer">
+                                        class="px-3 py-2 hover:bg-gray-100 dark:hover:bg-zinc-600 cursor-pointer transition">
                                         {{ $suggestion }}
                                     </li>
                                 @endforeach
                             </ul>
                         @endif
+
                         @error('supplierId')
                             <small class="text-red-500">{{ $message }}</small>
                         @enderror
                     </div>
+
 
                     {{-- Barang Input --}}
                     <div class="mb-4 space-y-3">
@@ -154,7 +159,7 @@
                                 class="flex flex-col md:grid md:grid-cols-12 gap-2 items-start border p-3 rounded-md bg-gray-50 dark:bg-zinc-700">
 
                                 {{-- Item --}}
-                                <div class="w-full md:col-span-2 relative">
+                                <div class="w-full md:col-span-4 relative">
                                     <input type="text" wire:model.live="itemInputs.{{ $index }}.item_name"
                                         wire:input="fetchSuggestions('item', $event.target.value, {{ $index }})"
                                         wire:blur="hideSuggestions('item', {{ $index }})"
@@ -163,11 +168,12 @@
 
                                     {{-- Suggestions --}}
                                     @if (!empty($suggestions['item'][$index]))
-                                        <ul class="absolute z-10 bg-white border w-full mt-1 rounded shadow text-sm">
+                                        <ul
+                                            class="absolute z-10 bg-white dark:bg-zinc-700 w-full mt-1 rounded shadow text-sm">
                                             @foreach ($suggestions['item'][$index] as $suggestion)
-                                                <li wire:click="selectSuggestion('item', {{ $index }}, '{{ $suggestion }}')"
-                                                    class="px-3 py-2 hover:bg-gray-100 cursor-pointer">
-                                                    {{ $suggestion }}
+                                                <li wire:click="selectSuggestion('item', {{ $index }}, {{ $suggestion['id'] }})"
+                                                    class="px-3 py-2 hover:bg-gray-100 dark:hover:bg-zinc-600 cursor-pointer transition">
+                                                    {{ $suggestion['label'] }}
                                                 </li>
                                             @endforeach
                                         </ul>
@@ -201,7 +207,7 @@
                                 </div>
 
                                 {{-- Hapus --}}
-                                <div class="w-full md:col-span-2 flex justify-end mt-1">
+                                <div class="w-full md:col-span-1 flex justify-end mt-1">
                                     <button type="button" wire:click="removeItemInput({{ $index }})"
                                         class="text-red-500 hover:underline text-sm">Hapus</button>
                                 </div>
@@ -234,7 +240,7 @@
                                         <div class="flex gap-2 items-center mb-2">
                                             <select
                                                 wire:model="itemInputs.{{ $index }}.conversions.{{ $convIndex }}.to_unit_id"
-                                                class="border px-2 py-1 rounded w-1/3">
+                                                class="border px-2 py-1 rounded w-1/3 dark:bg-zinc-700 dark:text-white">
                                                 <option value="">Ke Satuan</option>
                                                 @foreach ($units as $unit)
                                                     <option value="{{ $unit->id }}">

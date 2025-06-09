@@ -16,6 +16,8 @@ class DataUser extends Component
 
     public $search = '';
     public $name, $email, $password, $userId;
+    public $role;
+    public $availableRoles = [];
     public $isModalOpen = false;
 
     public function render()
@@ -26,7 +28,7 @@ class DataUser extends Component
             ->when($this->search, fn($q) => $q->where('name', 'like', "%{$this->search}%"))
             ->orderBy('name')
             ->paginate(10);
-
+        $this->availableRoles = Role::where('name', '!=', 'pemilik')->pluck('name');
         return view('livewire.data-user', compact('users'));
     }
 
@@ -42,6 +44,7 @@ class DataUser extends Component
         $this->userId  = $user->id;
         $this->name    = $user->name;
         $this->email   = $user->email;
+        $this->role = $user->roles()->pluck('name')->first(); // Ambil role pertama
         $this->isModalOpen = true;
     }
 
@@ -51,9 +54,10 @@ class DataUser extends Component
             'name'  => 'required|string|max:255',
             'email' => 'required|email|unique:users,email,' . $this->userId,
             'password' => $this->userId ? 'nullable|min:8' : 'required|min:8',
+            'role'     => 'required|exists:roles,name',
         ]);
 
-        User::updateOrCreate(
+        $user = User::updateOrCreate(
             ['id' => $this->userId],
             [
                 'name'     => $this->name,
@@ -62,6 +66,11 @@ class DataUser extends Component
                 'password' => $this->password ? Hash::make($this->password) : User::find($this->userId)->password,
             ]
         );
+
+        // Sync role
+        if ($this->role) {
+            $user->syncRoles([$this->role]);
+        }
 
         $this->resetForm();
         $this->dispatch('alert-success', ['message' => 'User berhasil disimpan']);
