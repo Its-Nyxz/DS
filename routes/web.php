@@ -36,11 +36,15 @@ Route::middleware(['auth'])->group(function () {
 });
 
 // ✅ Master Data
+Route::get('/units/template', [UnitController::class, 'export'])->name('units.template');
 Route::resource('units', UnitController::class);
+Route::get('/brands/template', [BrandController::class, 'export'])->name('brands.template');
 Route::resource('brands', BrandController::class);
+Route::get('/items/template', [ItemController::class, 'export'])->name('items.template');
 Route::resource('items', ItemController::class);
 
 // ✅ Supplier
+Route::get('/suppliers/template', [SupplierController::class, 'export'])->name('suppliers.template');
 Route::resource('suppliers', SupplierController::class);
 
 // item supplier

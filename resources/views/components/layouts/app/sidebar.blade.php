@@ -196,7 +196,13 @@
     </flux:sidebar>
 
     <flux:header class="hidden lg:flex justify-end items-center border-b bg-white dark:bg-zinc-800 dark:border-zinc-700 px-6 py-4">
-       <livewire:notifications-bell />
+        <div class="flex items-center space-x-4">
+            {{-- Notifikasi Stok Rendah --}}
+            <livewire:stock-notification />
+
+            {{-- Notifikasi Bell --}}
+            <livewire:notifications-bell />
+        </div>
     </flux:header>
 
     <!-- Mobile Header with Notification Bell -->
@@ -204,9 +210,11 @@
 
         {{-- Sidebar Toggle --}}
         <flux:sidebar.toggle class="lg:hidden" icon="bars-2" inset="left" />
-
+        
         {{-- Notifikasi Bell --}}
         <div class="flex items-center space-x-2">
+            <livewire:stock-notification />
+            
             <livewire:notifications-bell />
 
             {{-- Dropdown User --}}

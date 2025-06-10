@@ -221,7 +221,7 @@ class DataStockTransaction extends Component
                     ->sum('quantity');
 
                 $stokOpname = StockTransactionItem::where('item_id', $itemId)
-                    ->whereHas('transaction', fn($q) => $q->where('type', 'opname'))
+                    ->whereHas('transaction', fn($q) => $q->where('type', 'adjustment'))
                     ->orderByDesc('transaction_date')
                     ->value('quantity');
 

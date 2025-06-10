@@ -15,11 +15,15 @@ class DataUnit extends Component
     public $unitId;
     public $name, $symbol;
     public $isModalOpen = false;
+    public $orderBy = 'created_at';
+    public $orderDirection = 'desc';
 
     protected $rules = [
         'name' => 'required|string|max:255',
         'symbol' => 'required|string|max:10',
     ];
+
+    protected $listeners = ['refreshDataUnit' => 'render'];
 
     public function render()
     {
@@ -28,8 +32,8 @@ class DataUnit extends Component
             fn($q) =>
             $q->where('name', 'like', "%{$this->search}%")
         )
-            ->orderBy('name')
-            ->paginate(10);
+            ->orderBy($this->orderBy, $this->orderDirection)
+            ->paginate(9);
 
         return view('livewire.data-unit', compact('units'));
     }

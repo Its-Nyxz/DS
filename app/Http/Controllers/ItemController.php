@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Item;
+use App\Exports\TemplateItemExport;
+use Maatwebsite\Excel\Facades\Excel;
 use App\Http\Requests\StoreItemRequest;
 use App\Http\Requests\UpdateItemRequest;
 
@@ -15,6 +17,13 @@ class ItemController extends Controller
     {
         return view("item.index");
     }
+
+    public function export()
+    {
+        // Menggunakan export untuk mengunduh template
+        return Excel::download(new TemplateItemExport, 'template_barang.xlsx');
+    }
+
 
     /**
      * Show the form for creating a new resource.

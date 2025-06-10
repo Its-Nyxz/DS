@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Supplier;
+use App\Exports\TemplateSupplierExport;
+use Maatwebsite\Excel\Facades\Excel;
 use App\Http\Requests\StoreSupplierRequest;
 use App\Http\Requests\UpdateSupplierRequest;
 
@@ -15,6 +17,13 @@ class SupplierController extends Controller
     {
         return view("supplier.index");
     }
+
+    public function export()
+    {
+        // Menggunakan export untuk mengunduh template
+        return Excel::download(new TemplateSupplierExport, 'template_pemasok.xlsx');
+    }
+
 
     /**
      * Show the form for creating a new resource.

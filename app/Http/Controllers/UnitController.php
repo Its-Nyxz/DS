@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\Unit;
+use Maatwebsite\Excel\Facades\Excel;
 use App\Http\Requests\StoreUnitRequest;
 use App\Http\Requests\UpdateUnitRequest;
+use App\Exports\TemplateUnitExport;
 
 class UnitController extends Controller
 {
@@ -14,6 +16,12 @@ class UnitController extends Controller
     public function index()
     {
         return view("unit.index");
+    }
+
+    public function export()
+    {
+        // Menggunakan export untuk mengunduh template
+        return Excel::download(new TemplateUnitExport, 'template_satuan.xlsx');
     }
 
     /**

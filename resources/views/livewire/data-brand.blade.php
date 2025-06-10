@@ -2,11 +2,26 @@
     <div class="p-6">
         {{-- Header --}}
         <div class="flex justify-between mb-4">
-            <input type="text" wire:model.live="search" placeholder="Cari merek..."
-                class="border px-4 py-2 rounded w-1/3">
-            <button wire:click="openModal" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-                Tambah Merek
-            </button>
+            <div class="flex flex-wrap gap-2 w-full md:w-auto">
+                <input type="text" wire:model.live="search" placeholder="Cari merk..."
+                    class="border px-4 py-2 rounded w-1/3">
+                <select wire:model.live="orderBy" class="border px-3 py-2 rounded dark:bg-zinc-800 dark:text-white">
+                    <option value="created_at">Terbaru</option>
+                    <option value="name">Nama</option>
+                </select>
+
+                <select wire:model.live="orderDirection"
+                    class="border px-3 py-2 rounded dark:bg-zinc-800 dark:text-white">
+                    <option value="asc">Naik</option>
+                    <option value="desc">Turun</option>
+                </select>
+            </div>
+            <div class="flex space-x-2">
+                <button wire:click="openModal" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                    Tambah Merk
+                </button>
+                <livewire:imports-brand />
+            </div>
         </div>
 
         {{-- Card Grid --}}

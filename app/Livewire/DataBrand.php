@@ -15,12 +15,17 @@ class DataBrand extends Component
     public $isModalOpen = false;
     public $search = '';
 
+    public $orderBy = 'created_at';
+    public $orderDirection = 'desc';
+
+    protected $listeners = ['refreshDataBrand' => 'render'];
+
     public function render()
     {
         $brands = Brand::query()
             ->when($this->search, fn($q) => $q->where('name', 'like', "%{$this->search}%"))
-            ->orderBy('name')
-            ->paginate(10);
+            ->orderBy($this->orderBy, $this->orderDirection)
+            ->paginate(9);
 
         return view('livewire.data-brand', compact('brands'));
     }

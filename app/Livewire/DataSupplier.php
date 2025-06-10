@@ -4,6 +4,7 @@ namespace App\Livewire;
 
 use Livewire\Component;
 use App\Models\Supplier;
+use Illuminate\Support\Str;
 use Livewire\WithPagination;
 
 class DataSupplier extends Component
@@ -13,11 +14,14 @@ class DataSupplier extends Component
     public $supplierId, $name, $phone, $address;
     public $isModalOpen = false;
     public $search = '';
+    public $orderBy = 'created_at';
+    public $orderDirection = 'desc';
+    protected $listeners = ['refreshDataSupplier' => 'render'];
 
     public function render()
     {
         $suppliers = Supplier::where('name', 'like', "%{$this->search}%")
-            ->orderBy('name')
+            ->orderBy($this->orderBy, $this->orderDirection)
             ->paginate(10);
 
         return view('livewire.data-supplier', compact('suppliers'));
@@ -51,6 +55,7 @@ class DataSupplier extends Component
             ['id' => $this->supplierId],
             [
                 'name' => $this->name,
+                'slug' => Str::slug($this->name),
                 'phone' => $this->phone,
                 'address' => $this->address,
             ]

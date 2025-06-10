@@ -36,6 +36,9 @@ class DataItemSupplier extends Component
         'item' => []
     ];
 
+    public $orderBy = 'created_at';
+    public $orderDirection = 'desc';
+
     public function fetchSuggestions($field, $value, $index = null)
     {
         $query = null;
@@ -101,7 +104,9 @@ class DataItemSupplier extends Component
                 'catatan',
                 'deleted_at'
             ])->wherePivotNull('deleted_at');
-        }])->where('name', 'like', "%{$this->search}%")->paginate(10);
+        }])->where('name', 'like', "%{$this->search}%")
+            ->orderBy($this->orderBy, $this->orderDirection)
+            ->paginate(10);
         $allItems = Item::orderBy('name')->get();
         $allSuppliers = Supplier::orderBy('name')->get();
         $units = Unit::orderBy('name')->get();
@@ -213,7 +218,15 @@ class DataItemSupplier extends Component
 
         $fromUnitId = $item->unit_id;
 
-        $itemSupplier->unitConversions()->delete();
+        // Pastikan item_supplier_id diatur dengan benar
+        if (!$itemSupplier->id) {
+            // Jika itemSupplier tidak ada, buat atau update
+            $itemSupplier = $this->syncItemSupplier($input);  // Buat atau update itemSupplier jika belum ada
+            if (!$itemSupplier) {
+                logger()->error('Item Supplier ID tidak ditemukan setelah pembuatan atau pembaruan.');
+                return;
+            }
+        }
 
         $conversions = $input['conversions'] ?? [];
 
@@ -223,11 +236,27 @@ class DataItemSupplier extends Component
 
             if ($toUnitId && is_numeric($factor) && $factor > 0) {
                 try {
-                    $itemSupplier->unitConversions()->create([
-                        'from_unit_id' => $fromUnitId,
-                        'to_unit_id' => $toUnitId,
-                        'factor' => $factor,
-                    ]);
+                    // Periksa apakah konversi sudah ada
+                    $existingConversion = $itemSupplier->unitConversions()
+                        ->where('from_unit_id', $fromUnitId)
+                        ->where('to_unit_id', $toUnitId)
+                        ->first();
+
+                    if ($existingConversion) {
+                        // Jika konversi sudah ada, lakukan update semua kolom yang diperlukan
+                        $existingConversion->update([
+                            'to_unit_id' => $toUnitId,  // Update to_unit_id jika ada perubahan
+                            'factor' => $factor,         // Update factor jika ada perubahan
+                        ]);
+                    } else {
+                        // Jika konversi belum ada, buat baru
+                        $itemSupplier->unitConversions()->create([
+                            'from_unit_id' => $fromUnitId,
+                            'to_unit_id' => $toUnitId,
+                            'factor' => $factor,
+                            'item_supplier_id' => $itemSupplier->id, // Pastikan item_supplier_id terisi
+                        ]);
+                    }
                 } catch (\Throwable $e) {
                     logger()->error('Gagal simpan konversi.', [
                         'item_supplier_id' => $itemSupplier->id,
@@ -314,6 +343,6 @@ class DataItemSupplier extends Component
 
     public function resetForm()
     {
-        $this->reset(['supplierId', 'supplierName', 'itemInputs', 'isModalOpen']);
+        $this->reset(['supplierId', 'supplierName', 'supplier_name', 'itemInputs', 'isModalOpen']);
     }
 }

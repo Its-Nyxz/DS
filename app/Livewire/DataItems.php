@@ -28,6 +28,7 @@ class DataItems extends Component
         'brand' => [],
         'unit' => [],
     ];
+    protected $listeners = ['refreshDataItems' => 'render'];
 
     public function fetchSuggestions($field, $value)
     {
