@@ -33,4 +33,9 @@ class StockTransactionItem extends Model
     {
         return $this->belongsTo(Unit::class, 'unit_id');
     }
+
+    public function selectedUnit()
+    {
+        return $this->belongsTo(Unit::class, 'selected_unit_id');
+    }
 }

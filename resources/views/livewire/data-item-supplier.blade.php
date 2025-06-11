@@ -19,9 +19,9 @@
                 </select>
             </div>
 
-            <button wire:click="openModal" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+            {{-- <button wire:click="openModal" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
                 Tambah Data
-            </button>
+            </button> --}}
         </div>
 
         {{-- Table --}}

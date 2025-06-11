@@ -26,10 +26,11 @@
                             window.location.href = '{{ $notif->data['url'] ?? '#' }}';
                         })
                     "
-                    class="px-4 py-2 text-md hover:bg-gray-100 dark:hover:bg-zinc-700 cursor-pointer">
+                    class="px-4 py-2 text-md cursor-pointer hover:bg-gray-100 dark:hover:bg-zinc-700
+                    {{ $notif->read_at ? 'bg-white dark:bg-zinc-800 text-gray-500' : 'bg-blue-50 dark:bg-zinc-900 text-gray-900 dark:text-white font-semibold' }}">
 
                     <div class="font-medium">{!! $notif->data['title'] ?? 'Notifikasi' !!}</div>
-                    <div class="text-sm text-gray-300">{!! $notif->data['message'] ?? '-' !!}</div>
+                    <div class="text-sm text-gray-400">{!! $notif->data['message'] ?? '-' !!}</div>
                 </li>
             @empty
                 <li class="px-4 py-2 text-sm text-gray-300 text-center">

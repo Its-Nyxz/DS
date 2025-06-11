@@ -16,7 +16,7 @@ return new class extends Migration
             $table->foreignId('supplier_id')->nullable()->constrained('suppliers');
             $table->foreignId('customer_id')->nullable()->constrained()->onDelete('set null');
             $table->string('transaction_code')->unique();
-            $table->date('transaction_date')->nullable();
+            $table->dateTime('transaction_date')->nullable();
             $table->enum('type', ['in', 'out', 'adjustment', 'retur_in', 'retur_out']);
             $table->string('reference')->nullable();
             $table->boolean('is_approved')->default(false);

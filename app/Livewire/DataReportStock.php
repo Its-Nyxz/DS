@@ -19,6 +19,15 @@ class DataReportStock extends Component
     public $orderDirection = 'desc';
     public $startDate;
     public $endDate;
+    public $showItemDetailModal = false;
+    public $selectedItemDetail = [];
+    public $selectedItemStockDetails = [];
+    public $selectedSupplier = null;
+    public $selectedConversionFactor = 1;
+    public $availableSuppliers = [];
+    public $availableConversions = [];
+    public $selectedItemId;
+
 
     public function mount()
     {
@@ -55,6 +64,131 @@ class DataReportStock extends Component
         return view('livewire.data-report-stock', compact('itemsWithStock'));
     }
 
+    public function showItemDetail($sku)
+    {
+        $item = Item::with('unit', 'brand')->where('sku', $sku)->first();
+
+        if (!$item) {
+            $this->selectedItemDetail = [['error' => 'Item tidak ditemukan']];
+            $this->showItemDetailModal = true;
+            return;
+        }
+
+        $suppliers = ItemSupplier::with(['supplier', 'unitConversions.fromUnit', 'unitConversions.toUnit'])
+            ->where('item_id', $item->id)
+            ->get();
+
+        $this->selectedItemDetail = [[
+            'Nama Barang' => $item->name . ' ' . $item->brand->name,
+            'Unit Dasar' => $item->unit->name,
+        ]];
+
+        $jumlahMasuk = StockTransactionItem::where('item_id', $item->id)
+            ->whereHas('transaction', function ($q) {
+                $q->where('type', 'in')->where('is_approved', true);
+                if ($this->startDate && $this->endDate) {
+                    [$start, $end] = $this->getDateRange();
+                    $q->whereBetween('transaction_date', [$start, $end]);
+                }
+            })->sum('quantity');
+
+        $jumlahKeluar = StockTransactionItem::where('item_id', $item->id)
+            ->whereHas('transaction', function ($q) {
+                $q->where('type', 'out');
+                if ($this->startDate && $this->endDate) {
+                    [$start, $end] = $this->getDateRange();
+                    $q->whereBetween('transaction_date', [$start, $end]);
+                }
+            })->sum('quantity');
+
+        $jumlahReturIn = StockTransactionItem::where('item_id', $item->id)
+            ->whereHas('transaction', function ($q) {
+                $q->where('type', 'retur_in');
+                if ($this->startDate && $this->endDate) {
+                    [$start, $end] = $this->getDateRange();
+                    $q->whereBetween('transaction_date', [$start, $end]);
+                }
+            })->sum('quantity');
+
+        $jumlahReturOut = StockTransactionItem::where('item_id', $item->id)
+            ->whereHas('transaction', function ($q) {
+                $q->where('type', 'retur_out');
+                if ($this->startDate && $this->endDate) {
+                    [$start, $end] = $this->getDateRange();
+                    $q->whereBetween('transaction_date', [$start, $end]);
+                }
+            })->sum('quantity');
+
+        $penyesuaian = StockTransactionItem::where('item_id', $item->id)
+            ->whereHas('transaction', function ($q) {
+                $q->where('type', 'adjustment');
+                if ($this->startDate && $this->endDate) {
+                    [$start, $end] = $this->getDateRange();
+                    $q->whereBetween('transaction_date', [$start, $end]);
+                }
+            })->sum('quantity');
+
+
+        $total = max(0, $jumlahMasuk + $jumlahReturIn - $jumlahKeluar - $jumlahReturOut + $penyesuaian);
+
+        $this->selectedItemStockDetails = [[
+            'stok_awal' => 0,
+            'masuk' => $jumlahMasuk,
+            'keluar' => $jumlahKeluar,
+            'retur_in' => $jumlahReturIn,
+            'retur_out' => $jumlahReturOut,
+            'penyesuaian' => $penyesuaian,
+            'total' => $total,
+        ]];
+
+        // Untuk keperluan dropdown konversi
+        $this->availableSuppliers = $suppliers->map(function ($supplier) {
+            return [
+                'id' => $supplier->supplier->id,
+                'name' => $supplier->supplier->name,
+            ];
+        })->toArray();
+
+        $this->selectedSupplier = $this->availableSuppliers[0]['id'] ?? null;
+        $this->selectedItemId = $item->id;
+        $this->updateAvailableConversions();
+        $this->showItemDetailModal = true;
+    }
+
+    public function updateAvailableConversions()
+    {
+        if (!$this->selectedSupplier || !$this->selectedItemId) {
+            $this->availableConversions = [];
+            $this->selectedConversionFactor = 1;
+            return;
+        }
+
+        $itemSupplier = ItemSupplier::with(['unitConversions.fromUnit', 'unitConversions.toUnit', 'supplier'])
+            ->where('item_id', $this->selectedItemId)
+            ->where('supplier_id', $this->selectedSupplier)
+            ->first();
+
+        if (!$itemSupplier) {
+            $this->availableConversions = [];
+            $this->selectedConversionFactor = 1;
+            return;
+        }
+
+        if ($itemSupplier->unitConversions->isEmpty()) {
+            $this->availableConversions = [];
+            $this->selectedConversionFactor = 1;
+            return;
+        }
+
+        $this->availableConversions = $itemSupplier->unitConversions->map(function ($conv) {
+            return [
+                'label' => $conv->fromUnit->name . ' ke ' . $conv->toUnit->name . ' (' . $conv->factor . ' ' . $conv->toUnit->name . ' / ' . $conv->fromUnit->name . ')',
+                'factor' => $conv->factor,
+            ];
+        })->toArray();
+
+        // $this->selectedConversionFactor = $this->availableConversions[0]['factor'] ?? 1;
+    }
 
     // Menghitung stok saat ini dengan mempertimbangkan tanggal filter
     public function calculateStock($itemId)
@@ -75,7 +209,8 @@ class DataReportStock extends Component
 
                 // Filter berdasarkan tanggal jika ada
                 if ($this->startDate && $this->endDate) {
-                    $q->whereBetween('transaction_date', [$this->startDate, $this->endDate]);
+                    [$start, $end] = $this->getDateRange();
+                    $q->whereBetween('transaction_date', [$start, $end]);
                 }
             });
 
@@ -89,7 +224,8 @@ class DataReportStock extends Component
 
                 // Filter berdasarkan tanggal jika ada
                 if ($this->startDate && $this->endDate) {
-                    $q->whereBetween('transaction_date', [$this->startDate, $this->endDate]);
+                    [$start, $end] = $this->getDateRange();
+                    $q->whereBetween('transaction_date', [$start, $end]);
                 }
             });
 
@@ -103,7 +239,8 @@ class DataReportStock extends Component
 
                 // Filter berdasarkan tanggal jika ada
                 if ($this->startDate && $this->endDate) {
-                    $q->whereBetween('transaction_date', [$this->startDate, $this->endDate]);
+                    [$start, $end] = $this->getDateRange();
+                    $q->whereBetween('transaction_date', [$start, $end]);
                 }
             });
 
@@ -220,5 +357,13 @@ class DataReportStock extends Component
                 'Content-Disposition' => 'inline; filename="data_stock.pdf"'
             ]
         );
+    }
+
+    protected function getDateRange()
+    {
+        return [
+            Carbon::parse($this->startDate)->startOfDay(),
+            Carbon::parse($this->endDate)->endOfDay(),
+        ];
     }
 }

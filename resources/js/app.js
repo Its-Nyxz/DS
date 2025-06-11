@@ -126,3 +126,10 @@ window.errorAlert = function (message, title) {
 
     window.feedback(finalTitle, finalMessage, "error");
 };
+
+window.warningAlert = function (message, title) {
+    const finalMessage = message || "Terjadi kesalahan yang tidak diketahui!";
+    const finalTitle = title || "Peringatan";
+
+    window.feedback(finalTitle, finalMessage, "warning");
+};

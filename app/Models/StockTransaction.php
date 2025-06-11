@@ -14,6 +14,10 @@ class StockTransaction extends Model
     protected $table = "stock_transactions";
     protected $guarded = ['id'];
 
+    protected $casts = [
+        'transaction_date' => 'datetime',
+    ];
+
 
     public function supplier()
     {

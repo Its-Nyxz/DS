@@ -25,11 +25,32 @@
                     <option value="asc">Naik</option>
                     <option value="desc">Turun</option>
                 </select>
-            </div>
+                @if ($type === 'in')
+                    <select wire:model.live="is_approved"
+                        class="border rounded p-2 dark:bg-zinc-800 dark:text-white dark:border-zinc-600">
+                        <option value="">Semua Status</option>
+                        <option value="0">Pending</option>
+                        <option value="1">Approve</option>
+                    </select>
+                @endif
+                <div class="flex flex-wrap gap-2">
+                    <input type="date" wire:model.live="startDate"
+                        class="border px-2 py-1 rounded dark:bg-zinc-800 dark:text-white" placeholder="Dari tanggal">
 
-            <button wire:click="create" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-                + Tambah Transaksi
-            </button>
+                    <input type="date" wire:model.live="endDate"
+                        class="border px-2 py-1 rounded dark:bg-zinc-800 dark:text-white" placeholder="Sampai tanggal">
+                </div>
+            </div>
+            <div class="flex gap-2 mt-2 sm:mt-0">
+                <button wire:click="exportPdfByType"
+                    class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 flex items-center gap-1">
+                    <i class="fas fa-file-pdf"></i>
+                </button>
+
+                <button wire:click="create" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                    + Tambah Transaksi
+                </button>
+            </div>
         </div>
 
 
@@ -58,17 +79,20 @@
                 <tbody>
                     @forelse ($transactions as $tx)
                         <tr class="border-b dark:border-zinc-700">
-                            <td class="px-4 py-2">{{ $tx->transaction_date ?? $tx->created_at->format('d/m/Y') }}</td>
+                            <td class="px-4 py-2">
+                                {{ optional($tx->transaction_date)->format('d/m/Y H:i') ?? $tx->created_at->format('d/m/Y H:i') }}
+                            </td>
+
                             <td class="px-4 py-2">{{ $tx->transaction_code }}</td>
                             <td class="px-4 py-2">
                                 @if ($tx->type === 'in')
                                     {{ $tx->supplier->name ?? '-' }}
                                 @elseif ($tx->type === 'out')
                                     {{ $tx->customer->name ?? '-' }}
-                                @elseif ($tx->type === 'retur')
+                                @elseif ($tx->type === 'retur_out')
+                                    {{ $tx->supplier->name ?? '-' }}
+                                @elseif ($tx->type === 'retur_in')
                                     {{ $tx->customer->name ?? '-' }}
-                                @else
-                                    -
                                 @endif
                             </td>
                             <td class="px-4 py-2 text-right">
@@ -227,7 +251,8 @@
                 {{-- Tanggal --}}
                 <div class="mb-3">
                     <label>Tanggal Transaksi</label>
-                    <input type="date" wire:model.live="transaction_date" class="w-full border rounded p-2">
+                    <input type="datetime-local" wire:model.live="transaction_date"
+                        class="w-full border rounded p-2">
                 </div>
 
                 {{-- Catatan --}}
@@ -242,7 +267,7 @@
                     @foreach ($items as $i => $row)
                         @php
                             $itemSupplier = $itemSuppliers->firstWhere('id', $row['item_supplier_id'] ?? null);
-                            $conversions = $itemSupplier?->unitConversions ?? [];
+                            $conversions = $row['unit_conversions'] ?? [];
                         @endphp
                         <div
                             class="bg-white dark:bg-zinc-800 p-4 rounded shadow mb-4 space-y-3 border border-gray-200 dark:border-zinc-700">
@@ -266,15 +291,17 @@
                                     @enderror
                                 </div>
 
-                                @if (in_array($type, ['out', 'opname']))
+                                @if (in_array($type, ['out', 'opname']) || ($type === 'retur' && $subtype === 'retur_in'))
                                     {{-- Konversi --}}
                                     <div class="md:col-span-2">
                                         <select wire:model.live="items.{{ $i }}.selected_unit_id"
                                             class="w-full border rounded p-2 bg-white text-gray-800 border-gray-300 dark:bg-zinc-800 dark:text-white dark:border-zinc-700">
                                             <option value="">Konversi Satuan</option>
                                             @foreach ($conversions as $conv)
-                                                <option value="{{ $conv->to_unit_id }}">
-                                                    {{ $conv->toUnit->symbol }} - Faktor: {{ $conv->factor }}
+                                                <option value="{{ $conv['to_unit_id'] }}"
+                                                    {{ $conv['to_unit_id'] == $row['selected_unit_id'] ? 'selected' : '' }}>
+                                                    {{ $conv['to_unit']['symbol'] ?? '-' }} - Faktor:
+                                                    {{ $conv['factor'] }}
                                                 </option>
                                             @endforeach
                                         </select>
@@ -309,7 +336,6 @@
                                         @enderror
                                     </div>
                                 </div>
-
 
                                 {{-- Harga --}}
                                 <div class="relative">
@@ -460,7 +486,14 @@
                 @endif
 
                 {{-- Tombol Tutup --}}
-                <div class="flex justify-end mt-6">
+                <div class="flex justify-end mt-6 space-x-3">
+                    @if (!empty($detail['id']))
+                        <button wire:click="exportDetailPdf({{ $detail['id'] }})"
+                            class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                            <i class="fas fa-file-pdf"></i>
+                        </button>
+                    @endif
+
                     <button @click="open = false" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">
                         Tutup
                     </button>
