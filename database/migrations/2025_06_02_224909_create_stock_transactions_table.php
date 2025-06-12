@@ -18,7 +18,8 @@ return new class extends Migration
             $table->string('transaction_code')->unique();
             $table->dateTime('transaction_date')->nullable();
             $table->enum('type', ['in', 'out', 'adjustment', 'retur_in', 'retur_out']);
-            $table->string('reference')->nullable();
+            $table->enum('difference_reason', ['damaged', 'stolen', 'clerical_error', 'other'])->nullable(); // Alasan perbedaan
+            $table->enum('opname_type', ['regular', 'audit', 'ad_hoc'])->default('regular'); // Jenis opname
             $table->boolean('is_approved')->default(false);
             $table->text('description')->nullable();
             $table->foreignId('created_by')->nullable()->constrained('users');

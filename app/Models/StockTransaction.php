@@ -35,6 +35,11 @@ class StockTransaction extends Model
         return $this->hasMany(StockTransactionItem::class);
     }
 
+    public function opnames()
+    {
+        return $this->hasMany(StockOpname::class);
+    }
+
     public function customer()
     {
         return $this->belongsTo(Customer::class);

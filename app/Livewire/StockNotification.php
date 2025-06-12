@@ -26,7 +26,7 @@ class StockNotification extends Component
             // Ambil stok yang dikonversi dan hitung stoknya
             $stokSekarang = $this->calculateStock($item->id); // Pastikan $item adalah objek Item
             // Tambahkan log untuk memeriksa stok dan min_stock
-            logger()->info("Item ID: {$item->id}, Stok Sekarang: {$stokSekarang}, Min Stock: {$item->min_stock}");
+            // logger()->info("Item ID: {$item->id}, Stok Sekarang: {$stokSekarang}, Min Stock: {$item->min_stock}");
             // Bandingkan dengan min_stock untuk memberi notifikasi jika stok lebih rendah atau sama dengan min_stock
             return $stokSekarang <= $item->min_stock;
         });
@@ -42,7 +42,7 @@ class StockNotification extends Component
 
         // Jika tidak ada relasi ItemSupplier, hentikan perhitungan dan beri log
         if (!$itemSupplier) {
-            logger()->warning('ItemSupplier tidak ditemukan untuk item ID: ' . $itemId);
+            // logger()->warning('ItemSupplier tidak ditemukan untuk item ID: ' . $itemId);
             return 0;  // Kembalikan stok 0 jika ItemSupplier tidak ditemukan
         }
 
@@ -69,7 +69,7 @@ class StockNotification extends Component
 
         // Periksa jika item ada
         if (!$item) {
-            logger()->warning('Item tidak ditemukan untuk ItemSupplier ID: ' . $itemSupplier->id);
+            // logger()->warning('Item tidak ditemukan untuk ItemSupplier ID: ' . $itemSupplier->id);
             return 0; // Kembalikan 0 jika item tidak ditemukan
         }
 
@@ -104,7 +104,7 @@ class StockNotification extends Component
 
     public function render()
     {
-        logger()->info('Low Stock Items: ', $this->lowStockItems->toArray());
+        // logger()->info('Low Stock Items: ', $this->lowStockItems->toArray());
         return view('livewire.stock-notification');
     }
 }

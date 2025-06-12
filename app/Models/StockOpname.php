@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class StockOpname extends Model
 {
     /** @use HasFactory<\Database\Factories\StockOpnameFactory> */
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $table = "stock_opnames";
     protected $guarded = ['id'];
@@ -19,8 +20,9 @@ class StockOpname extends Model
         return $this->belongsTo(Item::class);
     }
 
-    public function user()
+    // Relasi ke StockTransaction
+    public function stockTransaction()
     {
-        return $this->belongsTo(User::class, 'created_by');
+        return $this->belongsTo(StockTransaction::class, 'stock_transaction_id');
     }
 }

@@ -40,8 +40,8 @@
                         <th class="p-2 text-left">Kode</th>
                         <th class="p-2 text-left">Nama</th>
                         <th class="p-2 text-left">Merek</th>
-                        <th class="p-2 text-left">Stock Minim</th>
                         <th class="p-2 text-left">Satuan</th>
+                        <th class="p-2 text-left">Stock Minim</th>
                         <th class="p-2 text-left">Aksi</th>
                     </tr>
                 </thead>
@@ -60,8 +60,8 @@
                             <td class="p-2">{{ $item->sku }}</td>
                             <td class="p-2">{{ $item->name }}</td>
                             <td class="p-2">{{ $item->brand->name ?? '-' }}</td>
-                            <td class="p-2">{{ $item->min_stock ?? '-' }}</td>
                             <td class="p-2">{{ $item->unit->symbol ?? '-' }}</td>
+                            <td class="p-2">{{ $item->min_stock ?? '-' }}</td>
                             <td class="p-2 space-x-2">
                                 <button wire:click="edit({{ $item->id }})"
                                     class="text-yellow-600 hover:text-white hover:bg-yellow-600 p-1 rounded transition"

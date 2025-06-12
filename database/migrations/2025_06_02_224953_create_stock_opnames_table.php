@@ -13,13 +13,13 @@ return new class extends Migration
     {
         Schema::create('stock_opnames', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('item_id')->constrained('items');
-            $table->integer('actual_stock');
-            $table->integer('system_stock');
-            $table->integer('difference');
-            $table->date('noted_at');
-            $table->foreignId('created_by')->constrained('users');
+            $table->foreignId('stock_transaction_id')->nullable()->constrained('stock_transactions'); // Relasi dengan transaksi stok
+            $table->foreignId('item_id')->constrained('items'); // Referensi ke produk
+            $table->integer('actual_stock'); // Stok fisik
+            $table->integer('system_stock'); // Stok dalam sistem
+            $table->integer('difference'); // Perbedaan stok
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 

@@ -1,13 +1,28 @@
 @php
     $labels = [
+        'in' => 'Transaksi Masuk',
+        'out' => 'Transaksi Keluar',
+        'retur' => 'Transaksi Retur',
+        'opname' => 'Stock Opname',
+    ];
+
+    $field = [
         'in' => 'Masuk',
         'out' => 'Keluar',
         'retur' => 'Retur',
         'opname' => 'Stock Opname',
     ];
+
+    $differenceReasons = [
+        'damaged' => 'Rusak',
+        'stolen' => 'Dicuri',
+        'clerical_error' => 'Kesalahan Administrasi',
+        'other' => 'Lainnya',
+    ];
+    $opnameTypes = ['regular' => 'Reguler', 'audit' => 'Audit', 'ad_hoc' => 'Ad-hoc'];
 @endphp
 <div>
-    <x-card title="Transaksi Barang {{ $labels[$type] ?? ucfirst($type) }}">
+    <x-card title="Barang {{ $labels[$type] ?? ucfirst($type) }}">
         {{-- Header --}}
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
             <div class="flex flex-wrap gap-2 w-full md:w-auto">
@@ -16,7 +31,7 @@
                 <select wire:model.live="orderBy"
                     class="border rounded p-2 dark:bg-zinc-800 dark:text-white dark:border-zinc-600">
                     <option value="transaction_date">Tanggal</option>
-                    <option value="transaction_code">Kode Transaksi</option>
+                    <option value="transaction_code">Kode {{ $field[$type] ?? ucfirst($type) }}</option>
                     <option value="total">Total</option>
                 </select>
 
@@ -48,7 +63,7 @@
                 </button>
 
                 <button wire:click="create" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-                    + Tambah Transaksi
+                    + Tambah {{ $field[$type] ?? ucfirst($type) }}
                 </button>
             </div>
         </div>
@@ -170,15 +185,43 @@
            bg-white dark:bg-zinc-800 rounded p-6 shadow-lg overflow-y-auto max-h-[90vh]">
 
                 <h2 class="text-xl font-bold mb-4">
-                    {{ $editingId ? 'Edit' : 'Tambah' }} Transaksi {{ $labels[$type] ?? ucfirst($type) }}
+                    {{ $editingId ? 'Edit' : 'Tambah' }} {{ $labels[$type] ?? ucfirst($type) }}
                 </h2>
 
                 <div class="mb-3">
-                    <label class="block text-sm mb-1 dark:text-white">Kode Transaksi</label>
+                    <label class="block text-sm mb-1 dark:text-white">Kode
+                        {{ $labels[$type] ?? ucfirst($type) }}</label>
                     <input type="text"
                         class="w-full border rounded p-2 bg-gray-100 dark:bg-zinc-700 dark:text-white dark:border-zinc-700"
                         wire:model="transaction_code" disabled>
                 </div>
+
+                @if ($type === 'opname')
+                    {{-- Pilih Alasan Perbedaan --}}
+                    <div class="mb-3">
+                        <label class="block text-sm mb-1 dark:text-white">Alasan Perbedaan</label>
+                        <select wire:model.live="difference_reason"
+                            class="w-full border rounded p-2 bg-white dark:bg-zinc-800 dark:text-white dark:border-zinc-600">
+                            <option value="">Pilih Alasan</option>
+                            @foreach ($differenceReasons as $key => $reason)
+                                <option value="{{ $key }}">{{ $reason }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    {{-- Pilih Jenis Opname --}}
+                    <div class="mb-3">
+                        <label class="block text-sm mb-1 dark:text-white">Jenis Opname</label>
+                        <select wire:model.live="opname_type"
+                            class="w-full border rounded p-2 bg-white dark:bg-zinc-800 dark:text-white dark:border-zinc-600">
+                            <option value="">Pilih Jenis Opname</option>
+                            @foreach ($opnameTypes as $key => $optype)
+                                <option value="{{ $key }}">{{ $optype }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                @endif
+
                 @if ($type === 'retur')
                     <div class="mb-4">
                         <label>Tipe Retur</label>
@@ -197,7 +240,7 @@
                         <div class="mb-3">
                             <label class="block mb-1 text-sm dark:text-white">Supplier</label>
                             <select wire:model.live="supplier_id"
-                                class="w-full border rounded p-2 bg-white dark:bg-zinc-800 dark:text-white dark:border-zinc-600">
+                                class="w-full border rounded p-2 bg-white dark:bg-zinc-800 dark:text-white dark:border-zinc-600 overflow-y-auto max-h-60">
                                 <option value="">-- Pilih Supplier --</option>
                                 @foreach ($suppliers as $s)
                                     <option value="{{ $s->id }}">{{ $s->name }}</option>
@@ -224,7 +267,7 @@
                     <div class="mb-3">
                         <label class="block mb-1 text-sm dark:text-white">Supplier</label>
                         <select wire:model.live="supplier_id"
-                            class="w-full border rounded p-2 bg-white dark:bg-zinc-800 dark:text-white dark:border-zinc-600">
+                            class="w-full border rounded p-2 bg-white dark:bg-zinc-800 dark:text-white dark:border-zinc-600 overflow-y-auto max-h-60">
                             <option value="">-- Pilih Supplier --</option>
                             @foreach ($suppliers as $s)
                                 <option value="{{ $s->id }}">{{ $s->name }}</option>
@@ -278,7 +321,7 @@
                                 <div class="md:col-span-3">
                                     <select wire:model.live="items.{{ $i }}.item_supplier_id"
                                         wire:change="setItemSupplier({{ $i }}, $event.target.value)"
-                                        class="w-full border rounded p-2  bg-white text-gray-800 border-gray-300 dark:bg-zinc-800 dark:text-white dark:border-zinc-700">
+                                        class="w-full border rounded p-2  bg-white text-gray-800 border-gray-300 dark:bg-zinc-800 dark:text-white dark:border-zinc-700 overflow-y-auto max-h-60">
                                         <option value="">-- Pilih Barang --</option>
                                         @foreach ($itemSuppliers as $is)
                                             <option value="{{ $is->id }}">
@@ -295,10 +338,10 @@
                                     {{-- Konversi --}}
                                     <div class="md:col-span-2">
                                         <select wire:model.live="items.{{ $i }}.selected_unit_id"
-                                            class="w-full border rounded p-2 bg-white text-gray-800 border-gray-300 dark:bg-zinc-800 dark:text-white dark:border-zinc-700">
+                                            class="w-full border rounded p-2 bg-white text-gray-800 border-gray-300 dark:bg-zinc-800 dark:text-white dark:border-zinc-700 overflow-y-auto max-h-60">
                                             <option value="">Konversi Satuan</option>
                                             @foreach ($conversions as $conv)
-                                                <option value="{{ $conv['to_unit_id'] }}"
+                                                <option value="{{ (int) $conv['to_unit_id'] }}"
                                                     {{ $conv['to_unit_id'] == $row['selected_unit_id'] ? 'selected' : '' }}>
                                                     {{ $conv['to_unit']['symbol'] ?? '-' }} - Faktor:
                                                     {{ $conv['factor'] }}
@@ -311,6 +354,20 @@
 
                             {{-- Baris 2: Qty, Harga, Subtotal, Hapus --}}
                             <div class="flex flex-col md:flex-row justify-between gap-3 items-start">
+                                {{-- System Stock --}}
+                                @if ($type === 'opname')
+                                    <div class="relative">
+                                        <input type="number"
+                                            wire:model.live="items.{{ $i }}.system_stock"
+                                            class="w-full border rounded p-2 pr-16 bg-gray-100 text-gray-800 border-gray-300 dark:bg-zinc-700 dark:text-white dark:border-zinc-700"
+                                            placeholder="Stock Sistem" readonly>
+
+                                        <span class="absolute top-2 right-2 text-sm text-zinc-400">
+                                            {{ $row['unit_symbol'] ?? '-' }}
+                                        </span>
+                                    </div>
+                                @endif
+
                                 {{-- Qty --}}
                                 <div class="relative">
                                     <input type="number" wire:model.live="items.{{ $i }}.quantity"
@@ -337,34 +394,51 @@
                                     </div>
                                 </div>
 
-                                {{-- Harga --}}
-                                <div class="relative">
-                                    <input type="number" wire:model.live="items.{{ $i }}.unit_price"
-                                        class="w-full border rounded p-2 pr-16  bg-white text-gray-800 border-gray-300 dark:bg-zinc-800 dark:text-white dark:border-zinc-700"
-                                        step="0.01">
-                                    @php
-                                        $selectedUnitId = $row['selected_unit_id'] ?? null;
-                                        $conversion = $itemSupplier?->unitConversions->firstWhere(
-                                            'to_unit_id',
-                                            $selectedUnitId,
-                                        );
-                                        $unitSymbol = $selectedUnitId
-                                            ? $conversion?->toUnit?->symbol ?? '?'
-                                            : $itemSupplier?->item?->unit?->symbol ?? '?';
-                                    @endphp
-                                    <span class="absolute top-2 right-2 text-sm text-zinc-400">per
-                                        {{ $unitSymbol }}</span>
-                                </div>
+                                @if ($type === 'opname')
+                                    @dump($row)
+                                    <div class="relative">
+                                        <input type="number" wire:model.live="items.{{ $i }}.get_stock"
+                                            class="w-full border rounded p-2 pr-16 bg-gray-100 text-gray-800 border-gray-300 dark:bg-zinc-700 dark:text-white dark:border-zinc-700"
+                                            placeholder="Stok Penyesuaian" readonly>
+
+                                        <span class="absolute top-2 right-2 text-sm text-zinc-400">
+                                            {{ $row['unit_symbol'] ?? '-' }}
+                                        </span>
+                                    </div>
+                                @endif
+
+                                @if ($type !== 'opname')
+                                    {{-- Harga --}}
+                                    <div class="relative">
+                                        <input type="number" wire:model.live="items.{{ $i }}.unit_price"
+                                            class="w-full border rounded p-2 pr-16  bg-white text-gray-800 border-gray-300 dark:bg-zinc-800 dark:text-white dark:border-zinc-700"
+                                            step="0.01">
+                                        @php
+                                            $selectedUnitId = $row['selected_unit_id'] ?? null;
+                                            $conversion = $itemSupplier?->unitConversions->firstWhere(
+                                                'to_unit_id',
+                                                $selectedUnitId,
+                                            );
+                                            $unitSymbol = $selectedUnitId
+                                                ? $conversion?->toUnit?->symbol ?? '?'
+                                                : $itemSupplier?->item?->unit?->symbol ?? '?';
+                                        @endphp
+                                        <span class="absolute top-2 right-2 text-sm text-zinc-400">per
+                                            {{ $unitSymbol }}</span>
+                                    </div>
+                                @endif
 
                                 {{-- Subtotal & Tombol Hapus Rata Kanan --}}
                                 <div class="flex justify-end items-center mt-2 text-white gap-4">
-                                    <div class="flex items-center gap-2 text-green-400">
-                                        <i class="fas fa-money-bill-wave"></i>
-                                        <span>
-                                            Rp
-                                            {{ number_format((float) ($row['quantity'] ?? 0) * (float) ($row['unit_price'] ?? 0), 0, ',', '.') }}
-                                        </span>
-                                    </div>
+                                    @if ($type !== 'opname')
+                                        <div class="flex items-center gap-2 text-green-400">
+                                            <i class="fas fa-money-bill-wave"></i>
+                                            <span>
+                                                Rp
+                                                {{ number_format((float) ($row['quantity'] ?? 0) * (float) ($row['unit_price'] ?? 0), 0, ',', '.') }}
+                                            </span>
+                                        </div>
+                                    @endif
 
                                     <button wire:click="removeItem({{ $i }})"
                                         class="w-8 h-8 flex items-center justify-center text-red-600 hover:text-white hover:bg-red-600 rounded-full transition"
@@ -377,9 +451,11 @@
                     @endforeach
                     <button wire:click="addItem" class="text-blue-600 mt-2 hover:underline">+ Tambah Barang</button>
                     {{-- Total --}}
-                    <div class="flex justify-end font-semibold text-lg mt-4">
-                        Total: Rp {{ number_format($total, 0, ',', '.') }}
-                    </div>
+                    @if ($type !== 'opname')
+                        <div class="flex justify-end font-semibold text-lg mt-4">
+                            Total: Rp {{ number_format($total, 0, ',', '.') }}
+                        </div>
+                    @endif
                 </div>
 
                 {{-- Actions --}}

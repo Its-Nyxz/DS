@@ -9,6 +9,7 @@ use Livewire\Component;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\ItemSupplier;
 use App\Exports\StockReportExport;
+use App\Models\StockOpname;
 use App\Models\StockTransactionItem;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -119,8 +120,8 @@ class DataReportStock extends Component
                 }
             })->sum('quantity');
 
-        $penyesuaian = StockTransactionItem::where('item_id', $item->id)
-            ->whereHas('transaction', function ($q) {
+        $penyesuaian = StockOpname::where('item_id', $item->id)
+            ->whereHas('stockTransaction', function ($q) {
                 $q->where('type', 'adjustment');
                 if ($this->startDate && $this->endDate) {
                     [$start, $end] = $this->getDateRange();
@@ -128,8 +129,7 @@ class DataReportStock extends Component
                 }
             })->sum('quantity');
 
-
-        $total = max(0, $jumlahMasuk + $jumlahReturIn - $jumlahKeluar - $jumlahReturOut + $penyesuaian);
+        $total = round(max(0, $jumlahMasuk + $jumlahReturIn - $jumlahKeluar - $jumlahReturOut + $penyesuaian), 2);
 
         $this->selectedItemStockDetails = [[
             'stok_awal' => 0,
@@ -201,13 +201,11 @@ class DataReportStock extends Component
             return 0;
         }
 
-        // Siapkan query untuk transaksi stok masuk
+        // Hitung stok masuk (in)
         $stokMasukQuery = StockTransactionItem::where('item_id', $itemId)
             ->whereHas('transaction', function ($q) {
-                $q->whereIn('type', ['in', 'retur_in'])
-                    ->where('is_approved', true);
-
-                // Filter berdasarkan tanggal jika ada
+                $q->where('type', 'in') // Hanya untuk transaksi masuk (in)
+                    ->where('is_approved', true); // Pastikan sudah disetujui
                 if ($this->startDate && $this->endDate) {
                     [$start, $end] = $this->getDateRange();
                     $q->whereBetween('transaction_date', [$start, $end]);
@@ -217,43 +215,64 @@ class DataReportStock extends Component
         // Hitung stok masuk
         $stokMasuk = $stokMasukQuery->sum('quantity');
 
-        // Siapkan query untuk transaksi stok keluar
-        $stokKeluarQuery = StockTransactionItem::where('item_id', $itemId)
+        // Hitung retur masuk (retur_in)
+        $stokReturInQuery = StockTransactionItem::where('item_id', $itemId)
             ->whereHas('transaction', function ($q) {
-                $q->whereIn('type', ['out', 'retur_out']);
-
-                // Filter berdasarkan tanggal jika ada
+                $q->where('type', 'retur_in'); // Hanya untuk retur masuk (retur_in)
                 if ($this->startDate && $this->endDate) {
                     [$start, $end] = $this->getDateRange();
                     $q->whereBetween('transaction_date', [$start, $end]);
                 }
             });
 
-        // Hitung stok keluar
-        $stokKeluar = $stokKeluarQuery->sum('quantity');
+        // Hitung stok retur masuk
+        $stokReturIn = $stokReturInQuery->sum('quantity');
 
-        // Hitung stok opname (penyesuaian) dengan filter tanggal jika ada
-        $stokOpnameQuery = StockTransactionItem::where('item_id', $itemId)
+        // Hitung stok keluar (out)
+        $stokOutQuery = StockTransactionItem::where('item_id', $itemId)
             ->whereHas('transaction', function ($q) {
-                $q->where('type', 'adjustment');
-
-                // Filter berdasarkan tanggal jika ada
+                $q->where('type', 'out'); // Hanya untuk transaksi keluar (out)
                 if ($this->startDate && $this->endDate) {
                     [$start, $end] = $this->getDateRange();
                     $q->whereBetween('transaction_date', [$start, $end]);
                 }
             });
 
+        // Hitung stok keluar untuk transaksi `out`
+        $stokOut = $stokOutQuery->sum('quantity');
+
+        // Hitung retur keluar (retur_out)
+        $stokReturOutQuery = StockTransactionItem::where('item_id', $itemId)
+            ->whereHas('transaction', function ($q) {
+                $q->where('type', 'retur_out'); // Hanya untuk retur keluar (retur_out)
+                if ($this->startDate && $this->endDate) {
+                    [$start, $end] = $this->getDateRange();
+                    $q->whereBetween('transaction_date', [$start, $end]);
+                }
+            });
+
+        // Hitung stok retur keluar
+        $stokReturOut = $stokReturOutQuery->sum('quantity');
+
+        // Hitung penyesuaian stok (adjustment)
+        $stokOpnameQuery = StockOpname::where('item_id', $itemId)
+            ->whereHas('stockTransaction', function ($q) {
+                $q->where('type', 'adjustment'); // Penyesuaian stok
+                if ($this->startDate && $this->endDate) {
+                    [$start, $end] = $this->getDateRange();
+                    $q->whereBetween('transaction_date', [$start, $end]);
+                }
+            });
 
         // Ambil stok opname terakhir (penyesuaian)
         $stokOpname = $stokOpnameQuery->orderByDesc('transaction_date')->value('quantity');
-        // Hitung stok sekarang
-        $stokSekarang = isset($stokOpname) ? $stokOpname : ($stokMasuk - $stokKeluar);
 
-        // Pastikan stok tidak negatif
-        return max(0, $stokSekarang);
+        // Hitung stok sekarang berdasarkan stok opname terakhir, atau dari transaksi masuk dan keluar
+        $stokSekarang = isset($stokOpname) ? $stokOpname : ($stokMasuk + $stokReturIn - $stokOut - $stokReturOut);
+
+        // Pastikan stok tidak negatif dan batasi 2 desimal
+        return round(max(0, $stokSekarang), 2); // Membatasi angka desimal menjadi 2
     }
-
 
     // Export ke Excel
     public function exportExcel()
