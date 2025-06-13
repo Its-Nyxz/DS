@@ -10,8 +10,12 @@ import Swal from "sweetalert2";
 // import "select2";
 window.Swal = Swal;
 window.DataTable = DataTable;
+import ApexCharts from "apexcharts";
+window.ApexCharts = ApexCharts;
 
 window.confirmAlert = function (message, confirmButtonText, callback) {
+    const theme = getThemeMode();
+
     Swal.fire({
         title: "Apakah Anda yakin?",
         text: message || "Data akan dihapus secara permanen!",
@@ -21,6 +25,7 @@ window.confirmAlert = function (message, confirmButtonText, callback) {
         cancelButtonColor: "#d33",
         confirmButtonText: confirmButtonText || "Ya, hapus!",
         cancelButtonText: "Batal",
+        theme: theme === "dark" ? "dark" : "light", // bg-gray-800 vs white
     }).then((result) => {
         if (result.isConfirmed) {
             // Callback function to execute after confirmation
@@ -31,6 +36,8 @@ window.confirmAlert = function (message, confirmButtonText, callback) {
     });
 };
 window.confirmRemove = function (message, callback) {
+    const theme = getThemeMode();
+
     Swal.fire({
         title: "Apakah Anda yakin?",
         text: message || "Data akan dihapus secara permanen!",
@@ -40,6 +47,7 @@ window.confirmRemove = function (message, callback) {
         cancelButtonColor: "#d33",
         confirmButtonText: "Ya",
         cancelButtonText: "Tidak",
+        theme: theme === "dark" ? "dark" : "light", // bg-gray-800 vs white
     }).then((result) => {
         if (result.isConfirmed) {
             // Callback function to execute after confirmation
@@ -51,6 +59,8 @@ window.confirmRemove = function (message, callback) {
 };
 
 window.feedback = function (title, message, icon) {
+    const theme = getThemeMode();
+
     let timerInterval;
     Swal.fire({
         title: title,
@@ -59,6 +69,7 @@ window.feedback = function (title, message, icon) {
         timer: 3000,
         timerProgressBar: true,
         showConfirmButton: false,
+        theme: theme === "dark" ? "dark" : "light", // bg-gray-800 vs white
         willClose: () => {
             clearInterval(timerInterval);
         },
@@ -88,6 +99,8 @@ window.confirmRejectWithReason = function (
     confirmButtonText,
     callback
 ) {
+    const theme = getThemeMode();
+
     Swal.fire({
         title: "Apakah Anda yakin ingin menolak?",
         text: message || "Masukkan alasan penolakan:",
@@ -98,6 +111,7 @@ window.confirmRejectWithReason = function (
         cancelButtonColor: "#3085d6",
         confirmButtonText: confirmButtonText || "Tolak",
         cancelButtonText: "Batal",
+        theme: theme === "dark" ? "dark" : "light", // bg-gray-800 vs white
         inputValidator: (value) => {
             if (!value) {
                 return "Alasan wajib diisi!";
@@ -132,4 +146,10 @@ window.warningAlert = function (message, title) {
     const finalTitle = title || "Peringatan";
 
     window.feedback(finalTitle, finalMessage, "warning");
+};
+
+// Tambahkan fungsi ini
+window.getThemeMode = function () {
+    const html = document.documentElement;
+    return html.classList.contains("dark") ? "dark" : "light";
 };

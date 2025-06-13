@@ -75,6 +75,7 @@ class PermissionSeeder extends Seeder
             'delete-transaksi',
             'view-setting',
             'manage-users',
+            'manage-supplier-item',
         ]);
 
         $pegawai->syncPermissions([

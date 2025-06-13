@@ -25,18 +25,23 @@
         }
 
         .meta-info {
-            margin-bottom: 5px;
+            margin: 0;
+            line-height: 1.4;
+        }
+
+        .meta-info.note {
+            margin-bottom: 10px;
         }
 
         .meta-info strong {
             display: inline-block;
-            width: 90px;
+            width: 100px;
         }
 
         table.items {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 5px;
+            font-size: 12px;
         }
 
         table.items th,
@@ -47,7 +52,6 @@
 
         table.items th {
             background-color: #f0f0f0;
-            text-align: left;
         }
 
         .text-right {
@@ -63,6 +67,20 @@
 </head>
 
 <body>
+    @php
+        $differenceReasons = [
+            'damaged' => 'Rusak',
+            'stolen' => 'Dicuri',
+            'clerical_error' => 'Kesalahan Administrasi',
+            'other' => 'Lainnya',
+        ];
+
+        $opnameTypes = [
+            'regular' => 'Reguler',
+            'audit' => 'Audit',
+            'ad_hoc' => 'Ad-hoc',
+        ];
+    @endphp
 
     <div class="title">{{ $type_label }}</div>
 
@@ -70,51 +88,72 @@
         <div class="transaction-block">
             <div class="meta-info"><strong>Kode:</strong> {{ $tx->transaction_code }}</div>
             <div class="meta-info"><strong>Tanggal:</strong>
-                {{ optional($tx->transaction_date)->format('d/m/Y H:i') ?? $tx->created_at->format('d/m/Y H:i') }}
+                {{ optional($tx->transaction_date)->format('d/m/Y H:i') ?? $tx->created_at->format('d/m/Y H:i') }}</div>
+
+            @if ($tx->type === 'adjustment')
+                <div class="meta-info"><strong>Jenis Opname:</strong> {{ $opnameTypes[$tx->opname_type] ?? '-' }}</div>
+                <div class="meta-info"><strong>Alasan:</strong> {{ $differenceReasons[$tx->difference_reason] ?? '-' }}
+                </div>
+            @else
                 <div class="meta-info">
                     <strong>{{ $tx->customer ? 'Customer' : 'Supplier' }}:</strong>
                     {{ $tx->customer->name ?? ($tx->supplier->name ?? '-') }}
                 </div>
-                <div class="meta-info"><strong>Catatan:</strong> {{ $tx->description ?? '-' }}</div>
+            @endif
 
-                <table class="items">
-                    <thead>
-                        <tr>
-                            <th>Nama Barang</th>
+            <div class="meta-info note"><strong>Catatan:</strong> {{ $tx->description ?? '-' }}</div>
+
+            <table class="items">
+                <thead>
+                    <tr>
+                        <th>Nama Barang</th>
+
+                        @if ($tx->type === 'adjustment')
+                            <th class="text-right">Stok Sistem</th>
+                            <th class="text-right">Stok Aktual</th>
+                            <th class="text-right">Selisih</th>
+                            <th>Status</th>
+                        @else
                             <th class="text-right">Qty</th>
                             <th class="text-right">Harga</th>
                             <th class="text-right">Subtotal</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach ($tx->items as $item)
-                            @php
-                                $unitSymbol = $item->selectedUnit->symbol ?? ($item->item->unit->symbol ?? '-');
-                                $convertedQty = $item->selected_unit_id
-                                    ? optional(
-                                            $item->itemSupplier->unitConversions->firstWhere(
-                                                'to_unit_id',
-                                                $item->selected_unit_id,
-                                            ),
-                                        )->factor * $item->quantity
-                                    : $item->quantity;
-                            @endphp
-                            <tr>
-                                <td>{{ $item->item->name }}</td>
-                                <td class="text-right">{{ number_format($convertedQty, 2, ',', '.') }} /
-                                    {{ $unitSymbol }}
+                        @endif
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach ($tx->items as $item)
+                        <tr>
+                            <td>{{ $item->item->name }} {{ $item->item->brand->name ?? '' }}</td>
+
+                            @if ($tx->type === 'adjustment')
+                                <td class="text-right">
+                                    {{ number_format($item->system_stock ?? 0, 2, ',', '.') }}/{{ $item->converted_unit_symbol }}
+                                </td>
+                                <td class="text-right">
+                                    {{ number_format($item->converted_qty ?? 0, 2, ',', '.') }}/{{ $item->converted_unit_symbol }}
+                                </td>
+                                <td class="text-right">
+                                    {{ number_format($item->difference ?? 0, 2, ',', '.') }}/{{ $item->converted_unit_symbol }}
+                                </td>
+                                <td>{{ ucfirst($item->status ?? '-') }}</td>
+                            @else
+                                <td class="text-right">
+                                    {{ number_format($item->converted_qty ?? $item->quantity, 2, ',', '.') }}
+                                    / {{ $item->converted_unit_symbol ?? ($item->selectedUnit->symbol ?? '-') }}
                                 </td>
                                 <td class="text-right">Rp {{ number_format($item->unit_price, 0, ',', '.') }}</td>
                                 <td class="text-right">Rp {{ number_format($item->subtotal, 0, ',', '.') }}</td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
+                            @endif
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
 
+            @if ($tx->type !== 'adjustment')
                 <div class="total">Total: Rp {{ number_format($tx->items->sum('subtotal'), 0, ',', '.') }}</div>
-            </div>
+            @endif
+        </div>
     @endforeach
-
 </body>
 
 </html>

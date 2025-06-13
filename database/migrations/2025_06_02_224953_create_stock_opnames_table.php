@@ -18,6 +18,7 @@ return new class extends Migration
             $table->integer('actual_stock'); // Stok fisik
             $table->integer('system_stock'); // Stok dalam sistem
             $table->integer('difference'); // Perbedaan stok
+            $table->enum('status', ['tambah', 'penyusutan', 'sesuai']);
             $table->timestamps();
             $table->softDeletes();
         });

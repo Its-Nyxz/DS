@@ -32,4 +32,9 @@ class Supplier extends Model
     {
         return $this->hasMany(Retur::class);
     }
+
+    public function itemSuppliers()
+    {
+        return $this->hasMany(ItemSupplier::class);
+    }
 }

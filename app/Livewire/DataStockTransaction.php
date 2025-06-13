@@ -44,6 +44,8 @@ class DataStockTransaction extends Component
     public $orderDirection = 'desc'; // default urutan descending
     public $startDate;
     public $endDate;
+    public string $difference_reason = '';
+    public string $opname_type = '';
 
     public function mount($type)
     {
@@ -73,7 +75,8 @@ class DataStockTransaction extends Component
             ->when($this->type === 'retur', function ($q) {
                 $q->whereIn('type', ['retur_in', 'retur_out']);
             }, function ($q) {
-                $q->where('type', $this->type);
+                $actualType = $this->type === 'opname' ? 'adjustment' : $this->type;
+                $q->where('type', $actualType);
             })
             ->when($this->search, function ($q) {
                 $q->whereHas('items.item', fn($q2) => $q2->where('name', 'like', "%{$this->search}%"));
@@ -108,7 +111,7 @@ class DataStockTransaction extends Component
     {
         $actualType = $this->getActualType(); // Ini penting!
         $datePart = now()->format('Ymd');
-        $randomPart = strtoupper(substr(bin2hex(random_bytes(3)), 0, 5));
+        $randomPart = now()->format('His');
 
         return match ($actualType) {
             'retur_in' => "RTR-IN-{$datePart}-{$randomPart}",
@@ -238,8 +241,10 @@ class DataStockTransaction extends Component
             ->whereHas('transaction', fn($q) => $q->whereIn('type', ['out', 'retur_out']))
             ->sum('quantity');
 
+        // Penyesuaian dari stock_opname (adjustment)
+        $adjustment = StockOpname::where('item_id', $itemId)->sum('difference');
 
-        return $stokMasuk - $stokKeluar;
+        return $stokMasuk - $stokKeluar + $adjustment;
     }
 
     protected function getEditableQuantity($item)
@@ -409,6 +414,15 @@ class DataStockTransaction extends Component
 
         // Jika tipe transaksi adalah 'opname', simpan ke StockOpname, bukan ke StockTransaction
         if ($this->type === 'opname') {
+            if (empty($this->difference_reason)) {
+                $this->addError('difference_reason', 'Alasan perbedaan harus diisi.');
+                return;
+            }
+
+            if (empty($this->opname_type)) {
+                $this->addError('opname_type', 'Jenis opname harus dipilih.');
+                return;
+            }
             $this->saveStockOpname(); // Fungsi baru untuk menyimpan stock opname
         } else {
             // ✅ Setelah lolos validasi, baru lakukan validasi tambahan untuk type "in"
@@ -588,71 +602,61 @@ class DataStockTransaction extends Component
 
     protected function saveStockOpname()
     {
-        // Mengambil item_id untuk item pertama
-        $itemId = $this->items[0]['item_id']; // Ambil item pertama sebagai contoh
+        // Buat atau update transaksi stok
+        $tx = $this->editingId
+            ? StockTransaction::findOrFail($this->editingId)
+            : new StockTransaction();
 
-        // Menghitung stok masuk (stock in)
-        $stokMasuk = StockTransactionItem::where('item_id', $itemId)
-            ->whereHas('transaction', function ($q) {
-                $q->whereIn('type', ['in', 'retur_in']); // Stok Masuk
-            })
-            ->sum('quantity');
-
-        // Menghitung stok keluar (stock out)
-        $stokKeluar = StockTransactionItem::where('item_id', $itemId)
-            ->whereHas('transaction', function ($q) {
-                $q->whereIn('type', ['out', 'retur_out']); // Stok Keluar
-            })
-            ->sum('quantity');
-
-        // Menghitung stok sistem (System Stock) = Stok Masuk - Stok Keluar
-        $systemStock = $stokMasuk - $stokKeluar;
-
-        // Dapatkan unit yang dipilih untuk konversi
-        $selectedUnitId = $this->items[0]['selected_unit_id']; // unit_id yang dipilih
-        $itemSupplier = ItemSupplier::with('unitConversions')->where('item_id', $itemId)->first();
-
-        // Jika ada unit konversi untuk item ini, sesuaikan dengan unit yang dipilih
-        if ($selectedUnitId && $itemSupplier) {
-            $conversion = $itemSupplier->unitConversions->firstWhere('to_unit_id', $selectedUnitId);
-            if ($conversion && $conversion->factor > 0) {
-                // Sesuaikan dengan konversi unit yang dipilih
-                $systemStock = $systemStock * $conversion->factor; // Konversi ke unit yang dipilih
-            }
-        }
-
-        // Mengambil stok yang diinput atau quantity (penyesuaian stok)
-        $inputStock = $this->items[0]['quantity']; // Input quantity yang dimasukkan oleh user (penyesuaian stok)
-
-        // Menghitung get_stock: Menambah atau mengurangi stok berdasarkan input
-        $getStock = $systemStock + $inputStock; // Jika ingin mengurangi stok, bisa gunakan $systemStock - $inputStock
-
-        // Membuat StockTransaction untuk opname
-        $tx = StockTransaction::create([
+        $tx->fill([
             'transaction_code' => $this->transaction_code,
-            'type' => 'adjustment', // Jenis transaksi untuk opname
+            'type' => 'adjustment', // untuk opname
             'created_by' => auth()->id(),
-            'difference_reason' => null, // Tidak ada alasan perbedaan pada opname
-            'opname_type' => 'regular', // Jenis opname bisa disesuaikan
             'transaction_date' => Carbon::parse($this->transaction_date),
             'description' => $this->description,
-        ]);
+            'difference_reason' => $this->difference_reason ?? null,
+            'opname_type' => $this->opname_type ?? null,
+        ])->save();
 
-        // Membuat StockOpname terkait dengan transaksi opname
-        $opname = StockOpname::create([
-            'stock_transaction_id' => $tx->id, // ID transaksi opname yang baru saja dibuat
-            'item_id' => $itemId, // Ambil item pertama sebagai contoh
-            'actual_stock' => $this->items[0]['quantity'], // Stok fisik yang dimasukkan
-            'system_stock' => $systemStock, // Stok sistem
-            'difference' => $getStock - $systemStock, // Selisih stok
-            'created_by' => auth()->id(),
-        ]);
+        // Hapus item transaksi dan opname lama (jika edit)
+        $tx->items()->delete();
+        $tx->stockOpnames()->delete(); // relasi perlu didefinisikan di model StockTransaction
 
-        // Menyimpan stok yang telah dihitung
+        foreach ($this->items as $item) {
+            $itemId = $item['item_id'];
+            $actualStock = floatval($item['quantity']);
+            $systemStock = floatval($item['system_stock']);
+            $difference = $actualStock - $systemStock;
+            $status = $this->determineOpnameStatus($actualStock, $systemStock);
+
+            $itemSupplier = ItemSupplier::with('item')->find($item['item_supplier_id']);
+            $unitId = $itemSupplier?->item?->unit_id;
+
+            // Simpan ke transaksi item
+            $tx->items()->create([
+                'item_id' => $itemId,
+                'item_supplier_id' => $item['item_supplier_id'],
+                'unit_id' => $unitId,
+                'quantity' => $actualStock,
+                'unit_price' => 0,
+                'subtotal' => 0,
+                'selected_unit_id' => $item['selected_unit_id'] ?? null,
+            ]);
+
+            // Simpan ke tabel stock_opnames
+            StockOpname::create([
+                'stock_transaction_id' => $tx->id,
+                'item_id' => $itemId,
+                'actual_stock' => $actualStock,
+                'system_stock' => $systemStock,
+                'difference' => $difference,
+                'status' => $status,
+                'created_by' => auth()->id(),
+            ]);
+        }
+
         $this->dispatch('alert-success', ['message' => 'Stock Opname berhasil disimpan.']);
         $this->isModalOpen = false;
     }
-
 
     protected function getConversionFactor($itemSupplierId, $toUnitId): float
     {
@@ -697,6 +701,8 @@ class DataStockTransaction extends Component
         $this->editingId = null;
         $this->supplier_id = null;
         $this->customer_name = '';
+        $this->difference_reason = '';
+        $this->opname_type = '';
         $this->customer_id = null;
         $this->subtype = '';
         $this->transaction_date = now()->format('Y-m-d\TH:i');
@@ -710,6 +716,7 @@ class DataStockTransaction extends Component
                 'subtotal' => 0,
                 'selected_unit_id' => null,
                 'unit_conversions' => [],
+                'status' => null,
             ],
         ];
     }
@@ -777,7 +784,9 @@ class DataStockTransaction extends Component
             $this->items[$index]['item_supplier_id'] = $itemSupplier->id;
             $this->items[$index]['item_id'] = $itemSupplier->item_id;
             $this->items[$index]['unit_price'] = (float) $itemSupplier->harga_beli;
-            $this->items[$index]['quantity'] ??= 1;  // Default ke 1 jika quantity kosong
+            if (!isset($this->items[$index]['quantity'])) {
+                $this->setQuantity($index, 1);
+            }
             $this->items[$index]['subtotal'] = $itemSupplier->harga_beli * $this->items[$index]['quantity'];
 
             // Ambil semua konversi unit untuk item yang dipilih
@@ -820,106 +829,105 @@ class DataStockTransaction extends Component
 
     public function updatedItems($value, $key)
     {
-        // Menambahkan log untuk mengecek apakah updatedItems() dipanggil
-        Log::info("updatedItems triggered", ['key' => $key, 'value' => $value]);
-
         $parts = explode('.', $key);
 
-        if (count($parts) === 3) {
-            [$parent, $index, $field] = $parts;
+        if (count($parts) !== 3) return;
 
-            // Pastikan item_supplier_id sudah tersedia untuk item ini
-            $itemSupplierId = $this->items[$index]['item_supplier_id'] ?? null;
-            if (!$itemSupplierId) {
-                return;
-            }
+        [$parent, $index, $field] = $parts;
 
-            // Tangani perubahan quantity dan hitung get_stock
-            if ($field === 'quantity') {
-                // Pastikan quantity adalah angka
-                $this->items[$index]['quantity'] = floatval($this->items[$index]['quantity']); // Convert to float
+        $itemSupplierId = $this->items[$index]['item_supplier_id'] ?? null;
+        if (!$itemSupplierId) return;
 
-                // Ambil item id dan system stock
-                $itemId = $this->items[$index]['item_id'];
-                $systemStock = $this->getSystemStockForItem($itemId);  // Mengambil system stock
+        $itemId = $this->items[$index]['item_id'] ?? null;
+        $quantity = floatval($this->items[$index]['quantity'] ?? 0);
+        $selectedUnitId = $this->items[$index]['selected_unit_id'] ?? null;
 
-                $quantity = $this->items[$index]['quantity'];
-                $getStock = $systemStock - $quantity; // Menghitung get_stock
+        // Tangani perubahan quantity
+        if ($field === 'quantity') {
+            $this->items[$index]['quantity'] = $quantity;
 
-                // Menyimpan nilai get_stock yang telah dihitung
+            $systemStock = $this->getSystemStockForItem($itemId);
+
+            if ($selectedUnitId) {
+                $factor = $this->getConversionFactor($itemSupplierId, $selectedUnitId);
+                $baseQty = $quantity / $factor;
+
+                $getStock = $systemStock - $baseQty;
+
+                $this->items[$index]['get_stock'] = round($getStock * $factor, 2);
+                $this->items[$index]['system_stock'] = round($systemStock * $factor, 2);
+                $actual = $this->items[$index]['quantity'] ?? 0;
+                $system = $this->items[$index]['system_stock'] ?? 0;
+
+                $this->items[$index]['status'] = $this->determineOpnameStatus($actual, $system);
+            } else {
+                $getStock = $systemStock - $quantity;
+
                 $this->items[$index]['get_stock'] = round($getStock, 2);
-                Log::info("get_stock updated", ['index' => $index, 'get_stock' => $getStock]);
+                $this->items[$index]['system_stock'] = round($systemStock, 2);
+                $actual = $this->items[$index]['quantity'] ?? 0;
+                $system = $this->items[$index]['system_stock'] ?? 0;
+
+                $this->items[$index]['status'] = $this->determineOpnameStatus($actual, $system);
             }
-
-            // Tangani perubahan unit konversi (selected_unit_id)
-            if ($field === 'selected_unit_id') {
-                $selectedUnitId = (int) ($this->items[$index]['selected_unit_id'] ?? 0);
-
-                // Jika selected_unit_id direset (null), kembali ke stok dasar tanpa konversi
-                if ($selectedUnitId === 0 || !$selectedUnitId) {
-                    // Ambil data Item Supplier dengan unitConversions-nya
-                    $itemSupplier = ItemSupplier::with('item')->find($itemSupplierId);
-                    if ($itemSupplier) {
-                        // Ambil stok sistem untuk item yang dipilih (tanpa konversi untuk saat ini)
-                        $baseStock = $this->getSystemStockForItem($itemSupplier->item_id);
-
-                        // Perbarui system_stock tanpa konversi
-                        $this->items[$index]['system_stock'] = round($baseStock, 2);
-
-                        // Reset unit_symbol ke simbol unit dasar
-                        $this->items[$index]['unit_symbol'] = $itemSupplier->item->unit->symbol ?? '-';
-                    }
-                } else {
-                    // Jika unit konversi dipilih, hitung ulang system_stock dengan faktor konversi
-                    $itemSupplier = ItemSupplier::with('unitConversions')->find($itemSupplierId);
-                    if ($itemSupplier) {
-                        // Cari konversi unit yang dipilih
-                        $conversionFactor = $this->getConversionFactor($itemSupplier->id, $selectedUnitId);
-
-                        // Ambil stok sistem untuk item yang dipilih
-                        $baseStock = $this->getSystemStockForItem($itemSupplier->item_id);
-
-                        // Hitung stok yang sudah dikonversi berdasarkan faktor konversi
-                        $convertedStock = $baseStock * $conversionFactor;
-
-                        // Perbarui system_stock dengan stok konversi yang baru dan bulatkan ke 2 angka desimal
-                        $this->items[$index]['system_stock'] = round($convertedStock, 2);
-
-                        // Cari unit konversi yang sesuai dengan selected_unit_id dan dapatkan simbolnya
-                        $unitConversion = $itemSupplier->unitConversions->firstWhere('to_unit_id', $selectedUnitId);
-
-                        // Jika unit konversi ditemukan, perbarui simbol unit
-                        if ($unitConversion) {
-                            $this->items[$index]['unit_symbol'] = $unitConversion->toUnit->symbol ?? '-';
-                        }
-                    }
-                }
-            }
-
-            // Perbarui subtotal
-            $qty = (float) ($this->items[$index]['quantity'] ?? 0);
-            $price = (float) ($this->items[$index]['unit_price'] ?? 0);
-            $this->items[$index]['subtotal'] = $qty * $price;
-
-            // Perbarui total seluruh transaksi
-            $this->calculateTotal();
         }
-    }
 
+        // Tangani perubahan selected_unit_id
+        if ($field === 'selected_unit_id') {
+            $selectedUnitId = (int) $selectedUnitId;
+
+            $itemSupplier = ItemSupplier::with(['item', 'unitConversions'])->find($itemSupplierId);
+            if (!$itemSupplier) return;
+
+            $systemStock = $this->getSystemStockForItem($itemSupplier->item_id);
+
+            if (!$selectedUnitId) {
+                // Reset ke satuan dasar
+                $this->items[$index]['system_stock'] = round($systemStock, 2);
+                $this->items[$index]['get_stock'] = round($systemStock - $quantity, 2);
+                $actual = $this->items[$index]['quantity'] ?? 0;
+                $system = $this->items[$index]['system_stock'] ?? 0;
+
+                $this->items[$index]['status'] = $this->determineOpnameStatus($actual, $system);
+                $this->items[$index]['unit_symbol'] = $itemSupplier->item->unit->symbol ?? '-';
+            } else {
+                // Gunakan satuan konversi
+                $factor = $this->getConversionFactor($itemSupplier->id, $selectedUnitId);
+                $convertedStock = $systemStock * $factor;
+                $baseQty = $quantity / $factor;
+
+                $this->items[$index]['system_stock'] = round($convertedStock, 2);
+                $this->items[$index]['get_stock'] = round(($systemStock - $baseQty) * $factor, 2);
+                $actual = $this->items[$index]['quantity'] ?? 0;
+                $system = $this->items[$index]['system_stock'] ?? 0;
+
+                $this->items[$index]['status'] = $this->determineOpnameStatus($actual, $system);
+
+                $unitConversion = $itemSupplier->unitConversions->firstWhere('to_unit_id', $selectedUnitId);
+                $this->items[$index]['unit_symbol'] = $unitConversion?->toUnit->symbol ?? '-';
+            }
+        }
+
+        // Hitung ulang subtotal dan total
+        $qty = (float) ($this->items[$index]['quantity'] ?? 0);
+        $price = (float) ($this->items[$index]['unit_price'] ?? 0);
+        $this->items[$index]['subtotal'] = $qty * $price;
+
+        $this->calculateTotal();
+    }
 
     public function updated($name, $value)
     {
-        // Cek perubahan pada item_supplier_id, quantity atau selected_unit_id
-        if (Str::startsWith($name, 'items.') && (Str::endsWith($name, '.item_supplier_id') || Str::endsWith($name, '.quantity') || Str::endsWith($name, '.selected_unit_id'))) {
-            // Pisahkan key untuk mendapatkan index item yang diperbarui
-            $parts = explode('.', $name);
-            $index = $parts[1]; // Mendapatkan index item yang diubah
-
-            // Memanggil updatedItems untuk menangani perubahan pada item_supplier_id, quantity atau selected_unit_id
-            $this->updatedItems($value, $name);
-        }
+        $this->updatedItems($value, $name);
     }
 
+    public function setQuantity($index, $value)
+    {
+        $value = max(0, floatval($value)); // Pastikan tidak negatif
+        $this->items[$index]['quantity'] = $value;
+
+        $this->updatedItems($value, "items.$index.quantity");
+    }
 
     public function calculateTotal()
     {
@@ -930,8 +938,11 @@ class DataStockTransaction extends Component
 
     public function showDetail($id)
     {
-        $tx = StockTransaction::with(['supplier', 'items.item.unit', 'items.selectedUnit'])->findOrFail($id);
-
+        $tx = StockTransaction::with(['supplier', 'items.item.unit', 'items.selectedUnit', 'stockOpnames'])->findOrFail($id);
+        // Mapping stock opname hanya jika type 'opname'
+        $stockOpnameMap = $tx->type === 'adjustment'
+            ? $tx->stockOpnames->keyBy('item_id')
+            : collect();
         $this->detail = [
             'id' => $tx->id,
             'type' => $tx->type,
@@ -942,16 +953,32 @@ class DataStockTransaction extends Component
             'supplier' => $tx->supplier->name ?? '-',
             'customer_name' => $tx->type === 'retur_in' || $tx->type === 'out' || $tx->type === 'retur_out'
                 ? ($tx->customer->name ?? '-') : null,
-            'items' => $tx->items->map(fn($i) => [
-                'name' => $i->item->name ?? '-',
-                'brand' => $i->item->brand->name ?? '-',
-                'qty' => $i->quantity,
-                'unit_symbol' => $i->selectedUnit->symbol ?? $i->item->unit->symbol ?? '-',
-                'selected_unit_id' => $i->selected_unit_id,  // ID unit yang dipilih
-                'converted_qty' => $this->getConvertedQuantity($i),  // Quantity yang sudah dikonversi
-                'price' => $i->unit_price,
-                'subtotal' => $i->subtotal,
-            ])->toArray(),
+            'opname_type' => $tx->opname_type ?? null,
+            'difference_reason' => $tx->difference_reason ?? null,
+            'items' => $tx->items->map(function ($i) use ($tx, $stockOpnameMap) {
+                $convertedQty = $this->getConvertedQuantity($i);
+
+                $itemData = [
+                    'name' => $i->item->name ?? '-',
+                    'brand' => $i->item->brand->name ?? '-',
+                    'qty' => $i->quantity,
+                    'unit_symbol' => $i->selectedUnit->symbol ?? $i->item->unit->symbol ?? '-',
+                    'selected_unit_id' => $i->selected_unit_id,
+                    'converted_qty' => $convertedQty,
+                    'price' => $i->unit_price,
+                    'subtotal' => $i->subtotal,
+                ];
+
+                // Hanya untuk transaksi opname
+                if ($tx->type === 'adjustment') {
+                    $opname = $stockOpnameMap[$i->item_id] ?? null;
+                    $itemData['status'] = $opname?->status ?? '-';
+                    $itemData['system_stock'] = $opname?->system_stock ?? '-';
+                    $itemData['difference'] = $opname?->difference ?? 0;
+                }
+
+                return $itemData;
+            })->toArray(),
             'total' => $tx->items->sum('subtotal'),
             'note' => $tx->description ?? '',
             'is_approved' => $tx->is_approved,
@@ -1010,7 +1037,7 @@ class DataStockTransaction extends Component
     }
 
 
-    public function reject($id)
+    public function reject($id, $reason)
     {
         $tx = StockTransaction::findOrFail($id);
 
@@ -1022,24 +1049,24 @@ class DataStockTransaction extends Component
         $creator = User::find($tx->created_by);
         $kodeLama = $tx->transaction_code;
 
-        // Jika tipe in, ubah jadi retur_out
         if ($tx->type === 'in') {
             $tx->update([
                 'type' => 'retur_out',
-                'description' => ($tx->description ? $tx->description . "\n" : '') . ' Transaksi ini ditolak dan dikonversi jadi retur keluar.',
+                'description' => ($tx->description ? $tx->description . "\n" : '') .
+                    "Transaksi ini ditolak dan diubah jadi retur keluar.\nAlasan: $reason",
             ]);
 
-            $message = 'Transaksi <span class="font-bold">' . $kodeLama . '</span> ditolak dan dikonversi jadi <span class="text-red-500 font-semibold">Retur Keluar</span>.';
-            $url = '/transactions/retur'; // atau sesuaikan dengan path frontend kamu
+            $message = 'Transaksi <span class="font-bold">' . $kodeLama . '</span> ditolak dan diubah jadi <span class="text-red-500 font-semibold">Retur Keluar</span>.';
+            $url = '/transactions/retur';
         } else {
-            // Jika bukan tipe in, soft delete biasa
+            $tx->description = ($tx->description ? $tx->description . "\n" : '') . "Transaksi ditolak. Alasan: $reason";
+            $tx->save();
             $tx->delete();
 
             $message = 'Transaksi <span class="font-bold">' . $kodeLama . '</span> berhasil ditolak dan dihapus.';
             $url = '/transactions/' . $tx->type;
         }
 
-        // Kirim notifikasi
         if ($creator) {
             Notification::send($creator, new UserNotification(
                 $message,
@@ -1052,15 +1079,33 @@ class DataStockTransaction extends Component
         $this->dispatch('alert-success', ['message' => 'Transaksi berhasil diproses sebagai penolakan.']);
     }
 
+    protected function determineOpnameStatus(float $actual, float $system): string
+    {
+        return match (true) {
+            $actual > $system => 'tambah',
+            $actual < $system => 'penyusutan',
+            default => 'sesuai',
+        };
+    }
+
     public function exportDetailPdf($id)
     {
-        $tx = StockTransaction::with(['supplier', 'customer', 'items.item.unit', 'items.selectedUnit'])->findOrFail($id);
+        $tx = StockTransaction::with([
+            'supplier',
+            'customer',
+            'items.item.unit',
+            'items.selectedUnit',
+            'stockOpnames'
+        ])->findOrFail($id);
+
+        // Mapping stockOpname by item_id
+        $stockOpnameMap = $tx->stockOpnames->keyBy('item_id');
 
         foreach ($tx->items as $item) {
             $qty = $item->quantity;
             $unitSymbol = $item->selectedUnit->symbol ?? $item->item->unit->symbol ?? '-';
 
-            // Jika selected_unit_id digunakan, cari konversinya
+            // Konversi jika selected_unit digunakan
             if ($item->selected_unit_id && $item->itemSupplier) {
                 $conversion = $item->itemSupplier->unitConversions
                     ->firstWhere('to_unit_id', $item->selected_unit_id);
@@ -1070,9 +1115,18 @@ class DataStockTransaction extends Component
                 }
             }
 
-            // Simpan di temporary property
+            // Simpan data konversi
             $item->converted_qty = $qty;
             $item->converted_unit_symbol = $unitSymbol;
+
+            // Jika type adjustment, tambahkan data opname
+            if ($tx->type === 'adjustment') {
+                $opname = $stockOpnameMap[$item->item_id] ?? null;
+
+                $item->difference = $opname?->difference ?? 0;
+                $item->system_stock = $opname?->system_stock ?? 0;
+                $item->status = $opname?->status ?? '-';
+            }
         }
 
         $html = view('pdf.transaction-detail', compact('tx'))->render(); // Simpan HTML ke view
@@ -1094,11 +1148,66 @@ class DataStockTransaction extends Component
 
     public function exportPdfByType()
     {
-        $type = $this->type ?? 'in'; // Sesuaikan dengan tipe yang sedang aktif
-        $transactions = StockTransaction::with(['supplier', 'customer', 'items.item.unit', 'items.selectedUnit'])
-            ->where('type', $type)
-            ->orderByDesc('transaction_date')
+        $type = $this->type ?? 'in'; // Tipe aktif
+        $mappedType = $type === 'opname' ? 'adjustment' : $type;
+
+        $transactions = StockTransaction::with([
+            'supplier',
+            'customer',
+            'items.item.unit',
+            'items.selectedUnit',
+            'items.item.brand',
+            'items.itemSupplier.unitConversions.toUnit',
+            'stockOpnames'
+        ])
+            ->when($type === 'retur', function ($q) {
+                $q->whereIn('type', ['retur_in', 'retur_out']);
+            }, function ($q) use ($mappedType) {
+                $q->where('type', $mappedType);
+            })
+            ->when($this->search, function ($q) {
+                $q->whereHas('items.item', fn($q2) => $q2->where('name', 'like', '%' . $this->search . '%'));
+            })
+            ->when($type === 'in' && filled($this->is_approved), function ($q) {
+                $q->where('is_approved', $this->is_approved);
+            })
+            ->when($this->startDate && $this->endDate, function ($q) {
+                $start = Carbon::parse($this->startDate)->startOfDay();
+                $end = Carbon::parse($this->endDate)->endOfDay();
+                $q->whereBetween('transaction_date', [$start, $end]);
+            })
+            ->orderBy($this->orderBy ?? 'transaction_date', $this->orderDirection ?? 'desc')
             ->get();
+
+        // Konversi & tambahan data untuk setiap transaksi
+        foreach ($transactions as $tx) {
+            $stockOpnameMap = $tx->stockOpnames->keyBy('item_id');
+
+            foreach ($tx->items as $item) {
+                $qty = $item->quantity;
+                $unitSymbol = $item->selectedUnit->symbol ?? $item->item->unit->symbol ?? '-';
+
+                if ($item->selected_unit_id && $item->itemSupplier) {
+                    $conversion = $item->itemSupplier->unitConversions
+                        ->firstWhere('to_unit_id', $item->selected_unit_id);
+
+                    if ($conversion && $conversion->factor > 0) {
+                        $qty = $item->quantity * $conversion->factor;
+                        $unitSymbol = $conversion->toUnit->symbol ?? $unitSymbol;
+                    }
+                }
+
+                $item->converted_qty = $qty;
+                $item->converted_unit_symbol = $unitSymbol;
+
+                if ($type === 'opname') {
+                    $opname = $stockOpnameMap[$item->item_id] ?? null;
+                    $item->difference = $opname?->difference ?? 0;
+                    $item->system_stock = $opname?->system_stock ?? 0;
+                    $item->status = $opname?->status ?? '-';
+                }
+            }
+        }
 
         $typeLabels = [
             'in' => 'Transaksi Masuk',
@@ -1110,7 +1219,7 @@ class DataStockTransaction extends Component
 
         $html = view('pdf.transaction_report_by_type', [
             'transactions' => $transactions,
-            'type_label' => $typeLabels[$type] ?? strtoupper($type),
+            'type_label' => $typeLabels[$mappedType] ?? strtoupper($mappedType),
         ])->render();
 
         $pdf = new \TCPDF();
@@ -1119,20 +1228,18 @@ class DataStockTransaction extends Component
         $pdf->SetFont('helvetica', '', 10);
         $pdf->writeHTML($html, true, false, true, false, '');
 
-        $labels = [
-            'in' => 'Masuk',
-            'out' => 'Keluar',
-            'retur' => 'Retur',
-            'adjustment' => 'Stock Opname',
-        ];
+        $labelType = $typeLabels[$mappedType] ?? ucfirst($mappedType);
+        Carbon::setLocale('id'); // Set lokal ke Bahasa Indonesia
 
-        $labelType = $labels[$this->type] ?? ucfirst($this->type);
+        $startFormatted = Carbon::parse($this->startDate)->translatedFormat('d F Y');
+        $endFormatted = Carbon::parse($this->endDate)->translatedFormat('d F Y');
+        $filename = 'laporan_transaksi_' . strtolower($labelType) . "_{$startFormatted}_{$endFormatted}.pdf";
 
-        return response()->stream(function () use ($pdf) {
-            $pdf->Output('laporan_transaksi.pdf', 'I');
+        return response()->stream(function () use ($pdf, $labelType) {
+            $pdf->Output('laporan_transaksi_' . strtolower($labelType) . '.pdf', 'I');
         }, 200, [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="laporan_transaksi_' . strtolower($labelType) . '.pdf"',
+            'Content-Disposition' => 'inline; filename="' . $filename . '"',
         ]);
     }
 }

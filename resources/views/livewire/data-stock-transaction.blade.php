@@ -32,7 +32,12 @@
                     class="border rounded p-2 dark:bg-zinc-800 dark:text-white dark:border-zinc-600">
                     <option value="transaction_date">Tanggal</option>
                     <option value="transaction_code">Kode {{ $field[$type] ?? ucfirst($type) }}</option>
-                    <option value="total">Total</option>
+                    @if ($type !== 'opname')
+                        <option value="total">Total</option>
+                    @else
+                        <option value="opname_type">Jenis Opname</option>
+                        <option value="difference_reason">Alasan</option>
+                    @endif
                 </select>
 
                 <select wire:model.live="orderDirection"
@@ -83,11 +88,17 @@
                         @elseif ($type === 'retur')
                             <th class="px-4 py-3 border">Dari</th>
                         @endif
-                        <th class="px-4 py-3 border">Item</th>
+                        <th class="px-4 py-3 border">Barang</th>
+                        @if ($type === 'opname')
+                            <th class="px-4 py-3 border">Jenis Opname</th>
+                            <th class="px-4 py-3 border">Alasan</th>
+                        @endif
                         @if ($type === 'retur')
                             <th class="px-4 py-3 border">Tipe</th>
                         @endif
-                        <th class="px-4 py-3 border">Total</th>
+                        @if ($type !== 'opname')
+                            <th class="px-4 py-3 border">Total</th>
+                        @endif
                         <th class="px-4 py-3 border">Aksi</th>
                     </tr>
                 </thead>
@@ -99,17 +110,20 @@
                             </td>
 
                             <td class="px-4 py-2">{{ $tx->transaction_code }}</td>
-                            <td class="px-4 py-2">
-                                @if ($tx->type === 'in')
-                                    {{ $tx->supplier->name ?? '-' }}
-                                @elseif ($tx->type === 'out')
-                                    {{ $tx->customer->name ?? '-' }}
-                                @elseif ($tx->type === 'retur_out')
-                                    {{ $tx->supplier->name ?? '-' }}
-                                @elseif ($tx->type === 'retur_in')
-                                    {{ $tx->customer->name ?? '-' }}
-                                @endif
-                            </td>
+
+                            @if ($type !== 'opname')
+                                <td class="px-4 py-2">
+                                    @if ($tx->type === 'in')
+                                        {{ $tx->supplier->name ?? '-' }}
+                                    @elseif ($tx->type === 'out')
+                                        {{ $tx->customer->name ?? '-' }}
+                                    @elseif ($tx->type === 'retur_out')
+                                        {{ $tx->supplier->name ?? '-' }}
+                                    @elseif ($tx->type === 'retur_in')
+                                        {{ $tx->customer->name ?? '-' }}
+                                    @endif
+                                </td>
+                            @endif
                             <td class="px-4 py-2 text-right">
                                 {{ $tx->items->count() }}
                             </td>
@@ -124,9 +138,20 @@
                                     @endif
                                 </td>
                             @endif
-                            <td class="px-4 py-2 text-right">
-                                Rp {{ number_format($tx->items->sum('subtotal'), 0, ',', '.') }}
-                            </td>
+                            @if ($type === 'opname')
+                                <td class="px-4 py-2">
+                                    {{ $opnameTypes[$tx->opname_type] ?? '-' }}
+                                </td>
+
+                                <td class="px-4 py-2">
+                                    {{ $differenceReasons[$tx->difference_reason] ?? '-' }}
+                                </td>
+                            @endif
+                            @if ($type !== 'opname')
+                                <td class="px-4 py-2 text-right">
+                                    Rp {{ number_format($tx->items->sum('subtotal'), 0, ',', '.') }}
+                                </td>
+                            @endif
                             <td class="px-4 py-2 text-center align-middle flex justify-center items-center gap-2">
                                 {{-- Status label --}}
                                 @if ($type === 'in')
@@ -178,11 +203,11 @@
 
         {{-- Modal Form --}}
         <div x-data="{ open: @entangle('isModalOpen') }">
-            <div x-show="open" class="fixed inset-0 bg-black/40 z-40"></div>
+            <div x-show="open" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-40"></div>
 
             <div x-show="open"
                 class="fixed top-1/2 left-1/2 w-full max-w-4xl transform -translate-x-1/2 -translate-y-1/2 z-50
-           bg-white dark:bg-zinc-800 rounded p-6 shadow-lg overflow-y-auto max-h-[90vh]">
+    bg-white dark:bg-zinc-800 rounded p-6 shadow-lg overflow-y-auto max-h-[90vh]">
 
                 <h2 class="text-xl font-bold mb-4">
                     {{ $editingId ? 'Edit' : 'Tambah' }} {{ $labels[$type] ?? ucfirst($type) }}
@@ -207,6 +232,9 @@
                                 <option value="{{ $key }}">{{ $reason }}</option>
                             @endforeach
                         </select>
+                        @error('difference_reason')
+                            <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span>
+                        @enderror
                     </div>
 
                     {{-- Pilih Jenis Opname --}}
@@ -219,6 +247,9 @@
                                 <option value="{{ $key }}">{{ $optype }}</option>
                             @endforeach
                         </select>
+                        @error('opname_type')
+                            <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span>
+                        @enderror
                     </div>
                 @endif
 
@@ -360,7 +391,7 @@
                                         <input type="number"
                                             wire:model.live="items.{{ $i }}.system_stock"
                                             class="w-full border rounded p-2 pr-16 bg-gray-100 text-gray-800 border-gray-300 dark:bg-zinc-700 dark:text-white dark:border-zinc-700"
-                                            placeholder="Stock Sistem" readonly>
+                                            placeholder="Sistem" readonly>
 
                                         <span class="absolute top-2 right-2 text-sm text-zinc-400">
                                             {{ $row['unit_symbol'] ?? '-' }}
@@ -395,14 +426,34 @@
                                 </div>
 
                                 @if ($type === 'opname')
-                                    @dump($row)
                                     <div class="relative">
-                                        <input type="number" wire:model.live="items.{{ $i }}.get_stock"
+                                        @php
+                                            $getStock = $row['get_stock'] ?? 0;
+                                            $status = $row['status'] ?? '';
+                                            $displayStock = $status === 'tambah' ? abs($getStock) : $getStock;
+                                        @endphp
+                                        <input type="number" value="{{ number_format($displayStock, 2) }}"
                                             class="w-full border rounded p-2 pr-16 bg-gray-100 text-gray-800 border-gray-300 dark:bg-zinc-700 dark:text-white dark:border-zinc-700"
-                                            placeholder="Stok Penyesuaian" readonly>
+                                            placeholder="Penyesuaian" readonly>
 
                                         <span class="absolute top-2 right-2 text-sm text-zinc-400">
                                             {{ $row['unit_symbol'] ?? '-' }}
+                                        </span>
+                                    </div>
+                                    <div class="relative mt-2.5">
+                                        @php
+                                            $status = $row['status'] ?? null;
+                                        @endphp
+
+                                        <span
+                                            class="
+                                                inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold
+                                                @if ($status === 'tambah') bg-green-100 text-green-700
+                                                @elseif($status === 'penyusutan') bg-red-100 text-red-700
+                                                @elseif($status === 'sesuai') bg-blue-100 text-blue-700
+                                                @else bg-zinc-100 text-zinc-500 @endif
+                                            ">
+                                            {{ ucfirst($status) ?: '-' }}
                                         </span>
                                     </div>
                                 @endif
@@ -461,14 +512,23 @@
                 {{-- Actions --}}
                 <div class="flex justify-end space-x-2 mt-6">
                     <button @click="open = false" class="px-4 py-2 bg-gray-300 rounded">Batal</button>
-                    <button wire:click="save" class="px-4 py-2 bg-blue-600 text-white rounded">Simpan</button>
+                    <button wire:click="save" wire:loading.attr="disabled" wire:target="save"
+                        class="px-4 py-2 bg-blue-600 text-white rounded flex items-center gap-2">
+                        <span wire:loading.remove wire:target="save">Simpan</span>
+                        <svg wire:loading wire:target="save" class="w-5 h-5 animate-spin text-white" fill="none"
+                            viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
+                                stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                        </svg>
+                    </button>
                 </div>
             </div>
         </div>
 
         {{-- Modal Detail --}}
         <div x-data="{ open: @entangle('isDetailOpen') }">
-            <div x-show="open" class="fixed inset-0 bg-black/40 z-40"></div>
+            <div x-show="open" class="fixed inset-0 bg-black/40  backdrop-blur-sm z-40"></div>
 
             <div x-show="open"
                 class="fixed top-1/2 left-1/2 w-full max-w-2xl transform -translate-x-1/2 -translate-y-1/2 z-50 bg-white dark:bg-zinc-800 rounded p-6 shadow-lg">
@@ -477,15 +537,15 @@
                 <h2 class="text-xl font-bold mb-4">Detail Transaksi</h2>
 
                 {{-- Informasi Umum --}}
-                <div class="mb-2"><strong>Kode:</strong> {{ $detail['code'] ?? '' }}</div>
-                <div class="mb-2"><strong>Tanggal:</strong> {{ $detail['date'] ?? '' }}</div>
+                <div class="mb-2"><strong>Kode :</strong> {{ $detail['code'] ?? '' }}</div>
+                <div class="mb-2"><strong>Tanggal :</strong> {{ $detail['date'] ?? '' }}</div>
                 <div class="mb-2">
                     <strong>
                         @if (($detail['type'] ?? '') === 'retur_in' || ($detail['type'] ?? '') === 'retur_out')
                             Customer:
                         @elseif (($detail['type'] ?? '') === 'out')
                             Customer:
-                        @else
+                        @elseif (($detail['type'] ?? '') === 'in')
                             Supplier:
                         @endif
                     </strong>
@@ -495,7 +555,7 @@
                         {{ $detail['customer_name'] ?? '-' }}
                     @elseif (($detail['type'] ?? '') === 'retur_out')
                         {{ $detail['supplier'] ?? '-' }}
-                    @else
+                    @elseif (($detail['type'] ?? '') === 'in')
                         {{ $detail['supplier'] ?? '-' }}
                     @endif
                 </div>
@@ -504,6 +564,13 @@
                     <div class="mb-2 text-green-600 font-medium">Tipe: Retur dari Customer</div>
                 @elseif (($detail['type'] ?? '') === 'retur_out')
                     <div class="mb-2 text-yellow-600 font-medium">Tipe: Retur ke Supplier</div>
+                @endif
+
+                @if (($detail['type'] ?? '') === 'adjustment')
+                    <div class="mb-2"><strong>Jenis Opname:</strong>
+                        {{ $opnameTypes[$detail['opname_type']] ?? '-' }}</div>
+                    <div class="mb-2"><strong>Alasan:</strong>
+                        {{ $differenceReasons[$detail['difference_reason']] ?? '-' }}</div>
                 @endif
 
                 {{-- Item List --}}
@@ -515,28 +582,46 @@
                                 <span class="font-medium">{{ $item['name'] }} ({{ $item['brand'] }})</span>
                             </div>
 
+                            @if (($detail['type'] ?? '') === 'adjustment')
+                                <div class="flex justify-end items-center">
+                                    <span>{{ $item['system_stock'] }} {{ $item['unit_symbol'] }}</span>
+                                </div>
+                            @endif
+
+                            {{-- Status & Selisih (khusus opname) --}}
+                            @if (($detail['type'] ?? '') === 'adjustment')
+                                <div class="flex justify-end items-center text-sm">
+                                    <span class="mr-2">{{ ucfirst($item['status']) }}</span>
+                                    <span>({{ $item['difference'] > 0 ? '+' : '' }}{{ $item['difference'] }})</span>
+                                </div>
+                            @endif
+
                             {{-- Quantity --}}
                             <div class="flex justify-end items-center">
                                 <span>{{ $item['converted_qty'] }} {{ $item['unit_symbol'] }}</span>
                             </div>
 
-                            {{-- Harga --}}
-                            <div class="flex justify-end items-center">
-                                <span>Rp {{ number_format($item['price'], 0, ',', '.') }}</span>
-                            </div>
 
-                            {{-- Subtotal --}}
-                            <div class="flex justify-end items-center">
-                                <span>Rp {{ number_format($item['subtotal'], 0, ',', '.') }}</span>
-                            </div>
+                            @if (($detail['type'] ?? '') !== 'adjustment')
+                                {{-- Harga --}}
+                                <div class="flex justify-end items-center">
+                                    <span>Rp {{ number_format($item['price'], 0, ',', '.') }}</span>
+                                </div>
+
+                                {{-- Subtotal --}}
+                                <div class="flex justify-end items-center">
+                                    <span>Rp {{ number_format($item['subtotal'], 0, ',', '.') }}</span>
+                                </div>
+                            @endif
                         </div>
                     @endforeach
                 </div>
-
-                {{-- Total --}}
-                <div class="text-right font-bold">
-                    Total: Rp {{ number_format($detail['total'] ?? 0, 0, ',', '.') }}
-                </div>
+                @if (($detail['type'] ?? '') !== 'adjustment')
+                    {{-- Total --}}
+                    <div class="text-right font-bold">
+                        Total: Rp {{ number_format($detail['total'] ?? 0, 0, ',', '.') }}
+                    </div>
+                @endif
 
                 {{-- Catatan --}}
                 <div class="mt-2 text-sm">
@@ -554,7 +639,12 @@
                             class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
                             Approve
                         </button>
-                        <button wire:click="reject({{ $detail['id'] }})"
+                        <button
+                            onclick="confirmRejectWithReason(
+                                    'Ingin menolak transaksi ini?', 
+                                    'Ya, Tolak!', 
+                                    (reason) => @this.call('reject', {{ $detail['id'] }}, reason)
+                                )"
                             class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">
                             Reject
                         </button>
