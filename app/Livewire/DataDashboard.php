@@ -45,21 +45,21 @@ class DataDashboard extends Component
         $this->supplierCount = Supplier::count();
         $this->itemCount = Item::count();
 
-        $this->itemsPerSupplier = Cache::remember('items_per_supplier', now()->addMinutes(10), function () {
-            return ItemSupplier::with('supplier')
-                ->whereNull('deleted_at')
-                ->get()
-                ->groupBy('supplier_id')
-                ->map(function ($group) {
-                    return [
-                        'name' => optional($group->first()->supplier)->name ?? 'Unknown',
-                        'count' => $group->count(),
-                    ];
-                })
-                ->sortByDesc('count')->take(5)
-                ->values()
-                ->toArray();
-        });
+        $this->itemsPerSupplier = Cache::get('items_per_supplier');
+
+        $this->itemsPerSupplier = ItemSupplier::with('supplier')
+            ->whereNull('deleted_at')
+            ->get()
+            ->groupBy('supplier_id')
+            ->map(function ($group) {
+                return [
+                    'name' => optional($group->first()->supplier)->name ?? 'Unknown',
+                    'count' => $group->count(),
+                ];
+            })
+            ->sortByDesc('count')->take(5)
+            ->values()
+            ->toArray();
     }
 
     protected function loadTransactionCounts()
@@ -122,6 +122,7 @@ class DataDashboard extends Component
         'out' => 'Penjualan',
         'retur_in' => 'Retur Masuk',
         'retur_out' => 'Retur Keluar',
+        'adjustment' => 'Stock Opname',
     ];
 
 

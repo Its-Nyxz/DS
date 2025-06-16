@@ -10,6 +10,11 @@ class Companie extends Model
     /** @use HasFactory<\Database\Factories\CompanieFactory> */
     use HasFactory;
 
-     protected $table = "companies";
+    protected $table = "companies";
     protected $guarded = ['id'];
+
+    public function banners()
+    {
+        return $this->hasMany(CompanieBanners::class, 'companie_id');
+    }
 }

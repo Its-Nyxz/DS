@@ -99,6 +99,7 @@
                         @if ($type !== 'opname')
                             <th class="px-4 py-3 border">Total</th>
                         @endif
+
                         <th class="px-4 py-3 border">Aksi</th>
                     </tr>
                 </thead>
@@ -161,6 +162,19 @@
                                     @else
                                         <span
                                             class="text-yellow-600 text-xs font-semibold bg-yellow-100 px-2 py-1 rounded">Pending</span>
+                                    @endif
+                                    @if ($tx->is_fully_paid)
+                                        <button wire:click="openPaymentDetailModal({{ $tx->id }})"
+                                            class="text-blue-600 text-xs font-semibold bg-blue-100 hover:bg-blue-200 px-2 py-1 rounded transition"
+                                            title="Lihat detail pembayaran">
+                                            Lunas
+                                        </button>
+                                    @else
+                                        <button wire:click="openPaymentModal({{ $tx->id }})"
+                                            class="text-red-600 text-xs font-semibold bg-red-100 hover:bg-red-200 px-2 py-1 rounded transition"
+                                            title="Klik untuk bayar termin">
+                                            Hutang
+                                        </button>
                                     @endif
                                 @endif
 
@@ -335,6 +349,63 @@
                     <textarea wire:model.live="description" class="w-full border rounded p-2"></textarea>
                 </div>
 
+                @if ($type === 'in')
+                    <div class="mb-4">
+                        <label class="block font-semibold mb-1">Jenis Pembayaran</label>
+                        <label class="inline-flex items-center mr-4">
+                            <input type="radio" wire:model.live="payment_type" value="cash" class="form-radio">
+                            <span class="ml-2">Tunai</span>
+                        </label>
+                        <label class="inline-flex items-center">
+                            <input type="radio" wire:model.live="payment_type" value="term" class="form-radio">
+                            <span class="ml-2">Termin</span>
+                        </label>
+                    </div>
+
+                    @if ($payment_type === 'term')
+                        <div class="mb-3">
+                            <h4 class="font-semibold text-sm mb-2">Termin Pembayaran</h4>
+
+                            @foreach ($payment_schedules as $i => $schedule)
+                                <div class="grid grid-cols-12 items-start gap-2 mb-2">
+                                    {{-- Nominal --}}
+                                    <div class="col-span-5">
+                                        <input type="number"
+                                            wire:model.live="payment_schedules.{{ $i }}.amount"
+                                            placeholder="Jumlah (Rp)"
+                                            class="w-full border rounded p-2 @error('payment_schedules.' . $i . '.amount') border-red-500 @enderror" />
+                                        <small class="text-gray-500">* Jumlah adalah nominal dalam rupiah</small>
+                                    </div>
+
+                                    {{-- Tanggal --}}
+                                    <div class="col-span-5">
+                                        <input type="date"
+                                            wire:model.live="payment_schedules.{{ $i }}.due_date"
+                                            class="w-full border rounded p-2 @error('payment_schedules.' . $i . '.due_date') border-red-500 @enderror" />
+                                    </div>
+
+                                    {{-- Tombol hapus --}}
+                                    <div class="col-span-2 flex items-center">
+                                        <button type="button"
+                                            wire:click="removePaymentSchedule({{ $i }})"
+                                            class="text-red-500 hover:underline text-sm">Hapus</button>
+                                    </div>
+                                </div>
+                            @endforeach
+
+                            {{-- Total termin --}}
+                            <div class="mt-2 text-sm text-right text-gray-600">
+                                Total Termin: Rp
+                                {{ number_format(collect($payment_schedules)->sum('amount'), 0, ',', '.') }}
+                            </div>
+
+                            {{-- Tombol tambah termin --}}
+                            <button type="button" wire:click="addPaymentSchedule"
+                                class="text-blue-500 hover:underline text-sm mt-1">+ Tambah Termin</button>
+                        </div>
+                    @endif
+                @endif
+
                 {{-- Items --}}
                 <div class="mb-3">
                     <h3 class="font-semibold mb-2">Detail Barang</h3>
@@ -500,7 +571,8 @@
                             </div>
                         </div>
                     @endforeach
-                    <button wire:click="addItem" class="text-blue-600 mt-2 hover:underline">+ Tambah Barang</button>
+                    <button wire:click="addItem" class="text-blue-600 mt-2 hover:underline">+ Tambah
+                        Barang</button>
                     {{-- Total --}}
                     @if ($type !== 'opname')
                         <div class="flex justify-end font-semibold text-lg mt-4">
@@ -665,6 +737,148 @@
                     </button>
                 </div>
             </div>
+
+            <div x-data="{ open: @entangle('isPaymentModalOpen') }">
+                <!-- Backdrop -->
+                <div x-show="open" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-40"></div>
+
+                <!-- Modal -->
+                <div x-show="open"
+                    class="fixed top-1/2 left-1/2 w-full sm:max-w-xl md:max-w-2xl lg:max-w-3xl transform -translate-x-1/2 -translate-y-1/2
+                     bg-white dark:bg-zinc-800 p-6 rounded shadow-lg z-50 transition-all overflow-y-auto max-h-[90vh]">
+
+                    <h2 class="text-xl font-bold mb-6 text-gray-800 dark:text-white">Pembayaran Termin</h2>
+
+                    <!-- Tanggal -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-white mb-1">
+                            Tanggal Pembayaran
+                        </label>
+                        <input type="date" wire:model.live="payment_paid_at"
+                            class="w-full border rounded p-2 dark:bg-zinc-700 dark:text-white dark:border-zinc-600" />
+                    </div>
+
+
+
+                    <!-- Pilih Termin -->
+                    @if (!empty($schedules))
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-white mb-1">
+                                Pilih Termin (opsional)
+                            </label>
+                            <select wire:model.live="selected_schedule_id"
+                                class="w-full border rounded p-2 bg-white dark:bg-zinc-700 dark:text-white dark:border-zinc-600">
+                                <option value="">-- Tanpa Termin --</option>
+                                @foreach ($schedules as $s)
+                                    <option value="{{ $s['id'] }}"
+                                        @if ($s['is_paid']) disabled @endif>
+                                        Termin {{ $loop->iteration }} - Rp
+                                        {{ number_format($s['amount'], 0, ',', '.') }} -
+                                        Jatuh Tempo: {{ $s['due_date'] }}
+                                        {{ $s['is_paid'] ? '(Sudah Dibayar)' : '' }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                    @endif
+
+                    <!-- Nominal Pembayaran -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-white mb-1">
+                            Nominal Pembayaran
+                        </label>
+                        <input type="number" wire:model.live="payment_amount" placeholder="Masukkan jumlah"
+                            class="w-full border rounded p-2 dark:bg-zinc-700 dark:text-white dark:border-zinc-600" />
+                        <small class="text-gray-500 dark:text-gray-400 block mt-1">* Nominal dalam Rupiah</small>
+                        @error('payment_amount')
+                            <span class="text-red-500 text-sm">{{ $message }}</span>
+                        @enderror
+                    </div>
+
+                    <!-- Metode Pembayaran -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-white mb-1">
+                            Metode Pembayaran
+                        </label>
+                        <select wire:model.live="payment_method"
+                            class="w-full border rounded p-2 bg-white dark:bg-zinc-700 dark:text-white dark:border-zinc-600">
+                            <option value="">-- Pilih Metode --</option>
+                            <option value="cash">Tunai</option>
+                            <option value="transfer">Transfer Bank</option>
+                            <option value="ewallet">E-Wallet</option>
+                            <option value="giro">Giro</option>
+                            <option value="other">Lainnya</option>
+                        </select>
+                        @error('payment_method')
+                            <span class="text-red-500 text-sm">{{ $message }}</span>
+                        @enderror
+                    </div>
+
+                    @if ($payment_method === 'transfer')
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-white mb-1">
+                                Nomor Referensi Transfer
+                            </label>
+                            <input type="text" wire:model.live="reference_number"
+                                class="w-full border rounded p-2 dark:bg-zinc-700 dark:text-white dark:border-zinc-600" />
+                        </div>
+                    @endif
+
+                    <!-- Catatan -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-white mb-1">
+                            Catatan
+                        </label>
+                        <textarea wire:model.live="payment_note"
+                            class="w-full border rounded p-2 dark:bg-zinc-700 dark:text-white dark:border-zinc-600" rows="3"
+                            placeholder="Contoh: Pembayaran via transfer..."></textarea>
+                    </div>
+
+                    <!-- Tombol -->
+                    <div class="flex justify-end gap-2">
+                        <button @click="open = false"
+                            class="bg-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-400 dark:bg-zinc-600 dark:text-white dark:hover:bg-zinc-500">
+                            Batal
+                        </button>
+                        <button wire:click="savePayment"
+                            class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                            Simpan
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div x-data="{ open: @entangle('isPaymentDetailModalOpen') }">
+                <div x-show="open" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-40"></div>
+
+                <div x-show="open"
+                    class="fixed top-1/2 left-1/2 w-full sm:max-w-xl transform -translate-x-1/2 -translate-y-1/2
+                    bg-white dark:bg-zinc-800 p-6 rounded shadow-lg z-50 overflow-y-auto max-h-[90vh]">
+                    <h2 class="text-xl font-bold mb-4 text-gray-800 dark:text-white">Detail Pembayaran</h2>
+
+                    <div class="space-y-4 text-sm">
+                        @forelse ($paymentDetails as $p)
+                            <div class="border-b pb-2 dark:border-zinc-600">
+                                <div><strong>Tanggal:</strong> {{ $p['date'] }}</div>
+                                <div><strong>Nominal:</strong> Rp {{ number_format($p['amount'], 0, ',', '.') }}</div>
+                                <div><strong>Metode:</strong> {{ ucfirst($p['method']) }}</div>
+                                <div><strong>Referensi:</strong> {{ $p['ref'] }}</div>
+                                <div><strong>Catatan:</strong> {{ $p['note'] ?? '-' }}</div>
+                                <div><strong>Diinput oleh:</strong> {{ $p['by'] }}</div>
+                            </div>
+                        @empty
+                            <div class="text-gray-500">Tidak ada data pembayaran ditemukan.</div>
+                        @endforelse
+                    </div>
+
+                    <div class="flex justify-end mt-6">
+                        <button @click="open = false"
+                            class="bg-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-400">
+                            Tutup
+                        </button>
+                    </div>
+                </div>
+            </div>
+
 
         </div>
 

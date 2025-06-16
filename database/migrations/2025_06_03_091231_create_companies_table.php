@@ -22,6 +22,9 @@ return new class extends Migration
             $table->string('owner_name')->nullable();
             $table->string('bank_name')->nullable();
             $table->string('bank_account')->nullable();
+            $table->string('slogan')->nullable();
+            $table->text('description')->nullable();
+            $table->text('promo')->nullable();
             $table->timestamps();
         });
     }

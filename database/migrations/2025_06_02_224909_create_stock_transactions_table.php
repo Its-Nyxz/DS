@@ -25,6 +25,9 @@ return new class extends Migration
             $table->foreignId('created_by')->nullable()->constrained('users');
             $table->foreignId('approved_by')->nullable()->constrained('users');
             $table->timestamp('approved_at')->nullable();
+            $table->decimal('total_amount', 12, 2)->nullable();
+            $table->boolean('is_fully_paid')->default(false);
+            $table->date('fully_paid_at')->nullable();
             $table->timestamps();
             $table->softDeletes();
         });

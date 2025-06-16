@@ -71,7 +71,11 @@
                 </div>
                 <div class="flex items-center space-x-2">
                     <select wire:model.live="chartRange"
-                        class="text-sm bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 rounded-md px-2 py-1 text-gray-700 dark:text-white">
+                        class="text-sm px-3 py-1.5 rounded-md transition-colors
+                        bg-gray-50 text-gray-800 border border-neutral-300
+                        dark:bg-zinc-700 dark:text-white dark:border-neutral-600
+                        focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:border-zinc-400
+                        dark:focus:ring-zinc-500 dark:focus:border-zinc-500">
                         <option value="today">Hari ini</option>
                         <option value="yesterday">Kemarin</option>
                         <option value="last_7_days">7 Hari Terakhir</option>
@@ -247,7 +251,7 @@
                 if (!chartEl || typeof ApexCharts === 'undefined') return;
 
                 if (!chartData || Object.keys(chartData).length === 0) {
-                    console.warn('⚠️ Tidak ada data chart yang diberikan:', chartData);
+                    // console.warn('⚠️ Tidak ada data chart yang diberikan:', chartData);
                     return;
                 }
 
@@ -264,7 +268,7 @@
                 const seriesData = Object.entries(chartData).map(([label, value], index) => ({
                     name: label,
                     data: [value],
-                    color: ['#1A56DB', '#7E3BF2', '#F59E0B', '#10B981'][index % 4],
+                    color: ['#1A56DB', '#22C55E', '#F59E0B', '#6B7280', '#EF4444'][index % 5],
                 }));
                 // console.log('📊 seriesData:', seriesData);   
 

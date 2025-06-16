@@ -23,6 +23,8 @@ class CompanieSeeder extends Seeder
             'owner_name'    => 'Bapak Duta',
             'bank_name'     => 'Bank BRI',
             'bank_account'  => '1234567890',
+            'slogan'        => 'Toko Bangunan Terpercaya',
+            'description'   => 'Toko Bangunan Terpercaya, Terjangkau dan Aman',
         ]);
     }
 }

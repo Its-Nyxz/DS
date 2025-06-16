@@ -21,6 +21,7 @@ class DataCompany extends Component
     public $owner_name;
     public $bank_name;
     public $bank_account;
+    public $slogan, $description, $promo;
 
     public function mount()
     {
@@ -36,6 +37,9 @@ class DataCompany extends Component
         $this->owner_name   = $this->company->owner_name;
         $this->bank_name    = $this->company->bank_name;
         $this->bank_account = $this->company->bank_account;
+        $this->slogan        = $this->company->slogan;
+        $this->description   = $this->company->description;
+        $this->promo         = $this->company->promo;
     }
     public function updatedLogo()
     {
@@ -79,6 +83,9 @@ class DataCompany extends Component
             'owner_name'   => $this->owner_name,
             'bank_name'    => $this->bank_name,
             'bank_account' => $this->bank_account,
+            'slogan'       => $this->slogan,
+            'description'  => $this->description,
+            'promo'        => $this->promo,
         ])->save();
 
         $this->dispatch('alert-success', ['message' => 'Profil perusahaan disimpan.']);

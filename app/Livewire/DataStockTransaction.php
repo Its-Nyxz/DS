@@ -16,8 +16,10 @@ use App\Models\UnitConversion;
 use App\Models\StockTransaction;
 use Illuminate\Support\Facades\Log;
 use App\Models\StockTransactionItem;
+use App\Models\StockTransactionPayment;
 use App\Notifications\UserNotification;
 use Illuminate\Support\Facades\Notification;
+use App\Models\StockTransactionPaymentSchedule;
 
 class DataStockTransaction extends Component
 {
@@ -46,6 +48,18 @@ class DataStockTransaction extends Component
     public $endDate;
     public string $difference_reason = '';
     public string $opname_type = '';
+    public $payment_schedules = []; // array untuk cicilan bertahap (opsional)
+    public string $payment_type = 'cash'; // default 'cash' atau 'term'
+    public bool $isPaymentModalOpen = false;
+    public $payment_transaction_id;
+    public float $payment_amount = 0;
+    public $payment_paid_at;
+    public string $payment_note = '';
+    public $schedules = []; // List termin
+    public $selected_schedule_id = null; // Termin yang dipilih saat bayar
+    public $payment_method;
+    public $paymentDetails = [];
+    public $isPaymentDetailModalOpen = false;
 
     public function mount($type)
     {
@@ -134,6 +148,10 @@ class DataStockTransaction extends Component
     {
         $this->resetForm();
 
+        if ($this->type === 'in') {
+            $this->initDefaultPaymentSchedule();
+        }
+
         if ($this->type === 'retur') {
             // Jika subtype sudah diisi saat create, langsung generate kode
             if (in_array($this->subtype, ['retur_in', 'retur_out'])) {
@@ -148,6 +166,23 @@ class DataStockTransaction extends Component
         $this->isModalOpen = true;
     }
 
+    private function initDefaultPaymentSchedule(): void
+    {
+        $this->payment_schedules = [
+            ['amount' => 0, 'due_date' => null],
+        ];
+    }
+
+    public function addPaymentSchedule(): void
+    {
+        $this->payment_schedules[] = ['amount' => 0, 'due_date' => null];
+    }
+
+    public function removePaymentSchedule($index): void
+    {
+        unset($this->payment_schedules[$index]);
+        $this->payment_schedules = array_values($this->payment_schedules);
+    }
     /**
      * Update transaction code when subtype changes (only for 'retur')
      */
@@ -223,6 +258,21 @@ class DataStockTransaction extends Component
                 'get_stock' => round($getStock, 2), // Menyimpan get_stock dalam array items
             ];
         })->toArray();
+
+        if ($tx->type === 'in') {
+            $this->payment_type = $tx->paymentSchedules()->exists() ? 'term' : 'cash';
+
+            if ($this->payment_type === 'term') {
+                $this->payment_schedules = $tx->paymentSchedules->map(function ($s) {
+                    return [
+                        'amount' => $s->scheduled_amount,
+                        'due_date' => Carbon::parse($s->due_date)->format('Y-m-d'),
+                    ];
+                })->toArray();
+            } else {
+                $this->payment_schedules = [];
+            }
+        }
 
         // Menghitung total berdasarkan item yang telah diset
         $this->calculateTotal();
@@ -389,6 +439,14 @@ class DataStockTransaction extends Component
         $this->tryAutoFillItemsFromPreviousTransaction();
     }
 
+    public function updatedPaymentType($value)
+    {
+        if ($value === 'cash') {
+            $this->payment_schedules = [];
+        } elseif ($value === 'term' && empty($this->payment_schedules)) {
+            $this->payment_schedules[] = ['amount' => 0, 'due_date' => null];
+        }
+    }
 
     public function save()
     {
@@ -409,6 +467,15 @@ class DataStockTransaction extends Component
             $rules['customer_name'] = 'required|string|min:3';
         }
 
+        if (empty($this->items)) {
+            $this->addError('items', 'Minimal satu item harus ditambahkan.');
+            return;
+        }
+
+        if ($this->total <= 0) {
+            $this->addError('total', 'Total transaksi tidak boleh nol.');
+            return;
+        }
         // ✅ Jalankan validasi utama
         $this->validate($rules);
 
@@ -443,6 +510,27 @@ class DataStockTransaction extends Component
 
                     if (!$itemExistForSupplier) {
                         $this->addError("items.$i.item_supplier_id", 'Barang ini tidak tersedia dari supplier yang dipilih.');
+                    }
+                }
+
+                if ($this->payment_type === 'term') {
+
+                    foreach ($this->payment_schedules as $i => $schedule) {
+                        if ($schedule['due_date'] < $this->transaction_date) {
+                            $this->addError("payment_schedules.$i.due_date", 'Tanggal jatuh tempo tidak boleh sebelum tanggal transaksi.');
+                        }
+
+                        if (empty($schedule['amount']) || empty($schedule['due_date'])) {
+                            $this->addError('payment_schedules.' . $i, 'Semua termin harus memiliki jumlah dan jatuh tempo.');
+                        }
+                    }
+
+                    $sum = collect($this->payment_schedules)->sum(function ($ps) {
+                        return is_numeric($ps['amount']) ? floatval($ps['amount']) : 0;
+                    });
+
+                    if ($sum != $this->total) {
+                        $this->addError('payment_schedules', 'Total termin harus sama dengan total transaksi.');
                     }
                 }
 
@@ -548,13 +636,32 @@ class DataStockTransaction extends Component
                 $this->dispatch('alert-error', ['message' => 'Transaksi sudah disetujui dan tidak bisa diedit.']);
                 return;
             }
-
             $tx->update([
                 'supplier_id' => $this->supplier_id,
                 'customer_id' => $this->customer_id ?? null,
                 'transaction_date' => Carbon::parse($this->transaction_date)->format('Y-m-d H:i:s'),
                 'description' => $this->description,
             ]);
+
+
+            if ($this->type === 'in') {
+                if ($this->payment_type === 'term') {
+                    $this->storePaymentSchedules($tx);
+
+                    $tx->update([
+                        'total_amount' => array_sum(array_column($this->payment_schedules, 'amount')),
+                        'is_fully_paid' => false,
+                        'fully_paid_at' => null,
+                    ]);
+                } else {
+                    // Pembayaran cash langsung lunas
+                    $tx->update([
+                        'total_amount' => $this->total,
+                        'is_fully_paid' => true,
+                        'fully_paid_at' => now(),
+                    ]);
+                }
+            }
 
             $tx->items()->delete();
 
@@ -656,6 +763,16 @@ class DataStockTransaction extends Component
 
         $this->dispatch('alert-success', ['message' => 'Stock Opname berhasil disimpan.']);
         $this->isModalOpen = false;
+    }
+
+    private function storePaymentSchedules(StockTransaction $tx): void
+    {
+        foreach ($this->payment_schedules as $schedule) {
+            $tx->paymentSchedules()->create([
+                'scheduled_amount' => $schedule['amount'],
+                'due_date' => $schedule['due_date'],
+            ]);
+        }
     }
 
     protected function getConversionFactor($itemSupplierId, $toUnitId): float
@@ -1086,6 +1203,98 @@ class DataStockTransaction extends Component
             $actual < $system => 'penyusutan',
             default => 'sesuai',
         };
+    }
+
+    public function openPaymentModal($transactionId)
+    {
+        $this->payment_transaction_id = $transactionId;
+
+        $tx = StockTransaction::with('paymentSchedules')->findOrFail($transactionId);
+        $this->schedules = $tx->paymentSchedules->map(function ($s) {
+            return [
+                'id' => $s->id,
+                'due_date' => Carbon::parse($s->due_date)->format('d/m/Y'),
+                'amount' => $s->scheduled_amount,
+                'is_paid' => $s->is_paid,
+            ];
+        })->toArray();
+
+        $this->selected_schedule_id = null;
+        $this->payment_paid_at = now()->format('Y-m-d');
+        $this->payment_amount = 0;
+        $this->payment_note = '';
+        $this->isPaymentModalOpen = true;
+    }
+
+    public function updatedSelectedScheduleId($value)
+    {
+        if ($value) {
+            $schedule = StockTransactionPaymentSchedule::find($value);
+            if ($schedule && !$schedule->is_paid) {
+                $this->payment_amount = $schedule->scheduled_amount;
+            }
+        } else {
+            $this->payment_amount = null;
+        }
+    }
+
+
+    public function savePayment()
+    {
+        $this->validate([
+            'payment_amount' => 'required|numeric|min:1',
+            'payment_paid_at' => 'required|date',
+            'payment_method' => 'required|string',
+        ]);
+
+        $tx = StockTransaction::findOrFail($this->payment_transaction_id);
+
+        $payment = $tx->payments()->create([
+            'payment_schedule_id' => $this->selected_schedule_id,
+            'amount' => $this->payment_amount,
+            'payment_date' => $this->payment_paid_at,
+            'payment_method' => $this->payment_method,
+            'reference_number' => $this->reference_number ?? 'TRMN-' . now()->format('Ymd-His'),
+            'note' => $this->payment_note,
+            'paid_by' => auth()->id(),
+        ]);
+
+        // Jika user pilih termin tertentu, tandai sudah dibayar
+        if ($this->selected_schedule_id) {
+            $schedule = StockTransactionPaymentSchedule::find($this->selected_schedule_id);
+            $schedule->update([
+                'is_paid' => true,
+                'paid_at' => $this->payment_paid_at,
+            ]);
+        }
+
+        // Update status lunas transaksi
+        $totalPaid = $tx->payments()->sum('amount');
+        $tx->update([
+            'is_fully_paid' => $totalPaid >= $tx->items->sum('subtotal'),
+            'fully_paid_at' => $totalPaid >= $tx->items->sum('subtotal') ? now() : null,
+        ]);
+
+        $this->isPaymentModalOpen = false;
+        $this->dispatch('alert-success', ['message' => 'Pembayaran berhasil disimpan.']);
+    }
+
+    public function openPaymentDetailModal($transactionId)
+    {
+        $transaction = StockTransaction::with('payments.payer')->findOrFail($transactionId);
+
+        $this->paymentDetails = $transaction->payments->map(function ($p) {
+            return [
+                'date' => $p->payment_date->format('d/m/Y'),
+                'amount' => $p->amount,
+                'method' => $p->payment_method,
+                'ref' => $p->reference_number,
+                'note' => $p->note,
+                'by' => $p->paidBy->name ?? '-',
+            ];
+        })->toArray();
+
+        $this->isPaymentDetailModalOpen = true;
     }
 
     public function exportDetailPdf($id)
