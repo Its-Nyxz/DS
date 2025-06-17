@@ -22,6 +22,7 @@ class DataCompany extends Component
     public $bank_name;
     public $bank_account;
     public $slogan, $description, $promo;
+    public $latitude, $longitude;
 
     public function mount()
     {
@@ -37,9 +38,11 @@ class DataCompany extends Component
         $this->owner_name   = $this->company->owner_name;
         $this->bank_name    = $this->company->bank_name;
         $this->bank_account = $this->company->bank_account;
-        $this->slogan        = $this->company->slogan;
-        $this->description   = $this->company->description;
-        $this->promo         = $this->company->promo;
+        $this->slogan       = $this->company->slogan;
+        $this->description  = $this->company->description;
+        $this->promo        = $this->company->promo;
+        $this->latitude     = $this->company->latitude;
+        $this->longitude    = $this->company->longitude;
     }
     public function updatedLogo()
     {
@@ -71,10 +74,11 @@ class DataCompany extends Component
             'owner_name'   => 'nullable|string',
             'bank_name'    => 'nullable|string',
             'bank_account' => 'nullable|string',
+            'latitude'     => 'nullable|numeric',
+            'longitude'    => 'nullable|numeric',
         ]);
 
         $this->company->fill([
-            'icon' => $this->icon,
             'name'         => $this->name,
             'email'        => $this->email,
             'phone'        => $this->phone,
@@ -86,6 +90,8 @@ class DataCompany extends Component
             'slogan'       => $this->slogan,
             'description'  => $this->description,
             'promo'        => $this->promo,
+            'latitude'     => $this->latitude,
+            'longitude'    => $this->longitude,
         ])->save();
 
         $this->dispatch('alert-success', ['message' => 'Profil perusahaan disimpan.']);

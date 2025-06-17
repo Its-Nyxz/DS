@@ -22,10 +22,20 @@ class DataUser extends Component
 
     public function render()
     {
-        $users = User::whereDoesntHave('roles', function ($query) {
-            $query->where('name', 'pemilik');
-        })
+        $currentUser = auth()->user();
+
+        $users = User::where('id', '!=', $currentUser->id) // jangan tampilkan user sendiri
+            ->whereDoesntHave('roles', function ($query) use ($currentUser) {
+                // Jangan tampilkan user dengan role 'pemilik'
+                $query->where('name', 'pemilik');
+
+                // Jika yang login admin, jangan tampilkan user dengan role 'admin' juga
+                if ($currentUser->hasRole('admin')) {
+                    $query->orWhere('name', 'admin');
+                }
+            })
             ->when($this->search, fn($q) => $q->where('name', 'like', "%{$this->search}%"))
+            ->with(['roles' => fn($q) => $q->where('name', '!=', 'pemilik')]) // exclude role pemilik dari tampilan
             ->orderBy('name')
             ->paginate(10);
         $this->availableRoles = Role::where('name', '!=', 'pemilik')->pluck('name');

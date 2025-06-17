@@ -17,4 +17,8 @@ class Companie extends Model
     {
         return $this->hasMany(CompanieBanners::class, 'companie_id');
     }
+    public function backgrounds()
+    {
+        return $this->hasMany(CompanieBackground::class, 'companie_id');
+    }
 }

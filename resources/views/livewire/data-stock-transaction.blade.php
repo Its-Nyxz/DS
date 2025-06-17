@@ -67,9 +67,11 @@
                     <i class="fas fa-file-pdf"></i>
                 </button>
 
-                <button wire:click="create" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-                    + Tambah {{ $field[$type] ?? ucfirst($type) }}
-                </button>
+                @can('create-transaksi')
+                    <button wire:click="create" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                        + Tambah {{ $field[$type] ?? ucfirst($type) }}
+                    </button>
+                @endcan
             </div>
         </div>
 
@@ -156,41 +158,88 @@
                             <td class="px-4 py-2 text-center align-middle flex justify-center items-center gap-2">
                                 {{-- Status label --}}
                                 @if ($type === 'in')
-                                    @if ($tx->is_approved)
-                                        <span
-                                            class="text-green-600 text-xs font-semibold bg-green-100 px-2 py-1 rounded">Approved</span>
+                                    <div x-data="{ showOptions{{ $tx->id }}: false }" class="relative">
+                                        @if ($tx->is_approved)
+                                            <span
+                                                class="text-green-600 text-xs font-semibold bg-green-100 px-2 py-1 rounded">Approved</span>
+                                        @else
+                                            @can('approve-transaksi')
+                                                <button
+                                                    @click="showOptions{{ $tx->id }} = !showOptions{{ $tx->id }}"
+                                                    class="text-yellow-600 text-xs font-semibold bg-yellow-100 px-2 py-1 rounded hover:bg-yellow-200 transition">
+                                                    Pending
+                                                </button>
+
+                                                <div x-show="showOptions{{ $tx->id }}"
+                                                    @click.away="showOptions{{ $tx->id }} = false"
+                                                    class="absolute z-10 bg-white border dark:bg-zinc-700 dark:border-zinc-600 shadow-lg rounded mt-1 w-28 text-sm">
+                                                    <button wire:click="approve({{ $tx->id }})"
+                                                        class="block w-full px-3 py-1 text-green-600 hover:bg-green-100 dark:hover:bg-zinc-600 text-left">
+                                                        Approve
+                                                    </button>
+                                                    <button
+                                                        onclick="confirmRejectWithReason(
+                                                                                'Tolak transaksi {{ $tx->transaction_code }}?',
+                                                                                'Ya, Tolak!',
+                                                                                (reason)
+=> @this.call('reject', {{ $tx->id }}, reason)
+                                                                            )"
+                                                        class="block w-full px-3 py-1 text-red-600 hover:bg-red-100 dark:hover:bg-zinc-600 text-left">
+                                                        Reject
+                                                    </button>
+                                                </div>
+                                            @else
+                                                <span
+                                                    class="text-yellow-600 text-xs font-semibold bg-yellow-100 px-2 py-1 rounded">Pending</span>
+                                            @endcan
+                                        @endif
+                                    </div>
+
+
+                                    @can('termin-transaksi')
+                                        @if ($tx->is_fully_paid)
+                                            <button wire:click="openPaymentDetailModal({{ $tx->id }})"
+                                                class="text-blue-600 text-xs font-semibold bg-blue-100 hover:bg-blue-200 px-2 py-1 rounded transition"
+                                                title="Lihat detail pembayaran">
+                                                Lunas
+                                            </button>
+                                        @else
+                                            <button wire:click="openPaymentModal({{ $tx->id }})"
+                                                class="text-red-600 text-xs font-semibold bg-red-100 hover:bg-red-200 px-2 py-1 rounded transition"
+                                                title="Klik untuk bayar termin">
+                                                Hutang
+                                            </button>
+                                        @endif
                                     @else
-                                        <span
-                                            class="text-yellow-600 text-xs font-semibold bg-yellow-100 px-2 py-1 rounded">Pending</span>
-                                    @endif
-                                    @if ($tx->is_fully_paid)
-                                        <button wire:click="openPaymentDetailModal({{ $tx->id }})"
-                                            class="text-blue-600 text-xs font-semibold bg-blue-100 hover:bg-blue-200 px-2 py-1 rounded transition"
-                                            title="Lihat detail pembayaran">
-                                            Lunas
-                                        </button>
-                                    @else
-                                        <button wire:click="openPaymentModal({{ $tx->id }})"
-                                            class="text-red-600 text-xs font-semibold bg-red-100 hover:bg-red-200 px-2 py-1 rounded transition"
-                                            title="Klik untuk bayar termin">
-                                            Hutang
-                                        </button>
-                                    @endif
+                                        @if ($tx->is_fully_paid)
+                                            <span class="text-blue-600 text-xs font-semibold bg-blue-100 px-2 py-1 rounded">
+                                                Lunas
+                                            </span>
+                                        @else
+                                            <span class="text-red-600 text-xs font-semibold bg-red-100 px-2 py-1 rounded">
+                                                Hutang
+                                            </span>
+                                        @endif
+                                    @endcan
                                 @endif
 
                                 {{-- Tombol Edit --}}
-                                <button wire:click="edit({{ $tx->id }})"
-                                    class="text-yellow-600 hover:text-white hover:bg-yellow-600 p-1 rounded"
-                                    title="Edit">
-                                    <i class="fas fa-edit"></i>
-                                </button>
+                                @can('edit-transaksi')
+                                    <button wire:click="edit({{ $tx->id }})"
+                                        class="text-yellow-600 hover:text-white hover:bg-yellow-600 p-1 rounded"
+                                        title="Edit">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                @endcan
 
                                 {{-- Tombol Hapus --}}
-                                <button
-                                    onclick="confirmAlert('Hapus transaksi {{ $tx->transaction_code }}?', 'Ya, hapus!', () => @this.call('delete', {{ $tx->id }}))"
-                                    class="text-red-600 hover:text-white hover:bg-red-600 p-1 rounded" title="Hapus">
-                                    <i class="fas fa-trash-alt"></i>
-                                </button>
+                                @can('delete-transaksi')
+                                    <button
+                                        onclick="confirmAlert('Hapus transaksi {{ $tx->transaction_code }}?', 'Ya, hapus!', () => @this.call('delete', {{ $tx->id }}))"
+                                        class="text-red-600 hover:text-white hover:bg-red-600 p-1 rounded" title="Hapus">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                @endcan
 
                                 {{-- Tombol Detail --}}
                                 <button wire:click="showDetail({{ $tx->id }})"
@@ -701,11 +750,7 @@
                 </div>
 
                 {{-- Tombol Approve / Reject --}}
-                @if (
-                    !empty($detail['id']) &&
-                        !$detail['is_approved'] &&
-                        ($detail['type'] ?? '') === 'in' &&
-                        auth()->user()->hasRole('pemilik'))
+                {{-- @if (!empty($detail['id']) && !$detail['is_approved'] && ($detail['type'] ?? '') === 'in' && auth()->user()->hasRole('pemilik'))
                     <div class="flex gap-2 mt-4">
                         <button wire:click="approve({{ $detail['id'] }})"
                             class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
@@ -721,7 +766,7 @@
                             Reject
                         </button>
                     </div>
-                @endif
+                @endif --}}
 
                 {{-- Tombol Tutup --}}
                 <div class="flex justify-end mt-6 space-x-3">
@@ -782,18 +827,22 @@
                         </div>
                     @endif
 
-                    <!-- Nominal Pembayaran -->
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-700 dark:text-white mb-1">
-                            Nominal Pembayaran
-                        </label>
-                        <input type="number" wire:model.live="payment_amount" placeholder="Masukkan jumlah"
-                            class="w-full border rounded p-2 dark:bg-zinc-700 dark:text-white dark:border-zinc-600" />
-                        <small class="text-gray-500 dark:text-gray-400 block mt-1">* Nominal dalam Rupiah</small>
-                        @error('payment_amount')
-                            <span class="text-red-500 text-sm">{{ $message }}</span>
-                        @enderror
+                    <div x-data="{ isPaymentDisabled: @entangle('selected_schedule_id') ? true : false }">
+                        <!-- Nominal Pembayaran -->
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-white mb-1">
+                                Nominal Pembayaran
+                            </label>
+                            <input type="number" wire:model.live="payment_amount" placeholder="Masukkan jumlah"
+                                class="w-full border rounded p-2 dark:bg-zinc-700 dark:text-white dark:border-zinc-600"
+                                :disabled="isPaymentDisabled" />
+                            <small class="text-gray-500 dark:text-gray-400 block mt-1">* Nominal dalam Rupiah</small>
+                            @error('payment_amount')
+                                <span class="text-red-500 text-sm">{{ $message }}</span>
+                            @enderror
+                        </div>
                     </div>
+
 
                     <!-- Metode Pembayaran -->
                     <div class="mb-4">
@@ -866,7 +915,7 @@
                                 <div><strong>Diinput oleh:</strong> {{ $p['by'] }}</div>
                             </div>
                         @empty
-                            <div class="text-gray-500">Tidak ada data pembayaran ditemukan.</div>
+                            <div class="text-gray-500">Pembayaran Langsung Lunas.</div>
                         @endforelse
                     </div>
 

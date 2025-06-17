@@ -10,6 +10,7 @@ use Livewire\Component;
 use App\Models\Supplier;
 use App\Models\ItemSupplier;
 use App\Models\StockTransaction;
+use App\Models\StockTransactionPaymentSchedule;
 use Illuminate\Support\Facades\Cache;
 
 class DataDashboard extends Component
@@ -20,15 +21,19 @@ class DataDashboard extends Component
     public $pendingIn = 0;
     public $totalIn = 0;
     public $chartRange = 'last_7_days';
-
     public $transactionChartData = [];
     public $totalTransactionCount = 0;
+    public $dueDateWarning = [];
+    public $totalPendapatan;
+    public $totalPengeluaran;
+    public $totalKeuntungan;
+
 
     public function mount()
     {
         $this->loadMasterCounts();
         $this->loadTransactionCounts();
-        $this->loadChartData(); // <-- ditambahkan agar langsung muncul
+        $this->loadChartData();
     }
 
     public function updatedChartRange()
@@ -103,17 +108,43 @@ class DataDashboard extends Component
             })
             ->get();
 
+        // Kelompokkan transaksi berdasarkan tipe
         $grouped = $transactions->groupBy('type');
 
+        // Inisialisasi variabel total pendapatan dan total pengeluaran
+        $totalPendapatan = 0;
+        $totalPengeluaran = 0;
+
+        // Array hasil untuk chart
         $result = [];
+
+        // Proses transaksi berdasarkan tipe
         foreach ($grouped as $type => $items) {
+            // Hitung subtotal dari items di setiap transaksi
             $subtotal = $items->flatMap->items->sum('subtotal');
             $label = $this->transactionTypeLabels[$type] ?? ucfirst($type);
+
+            // Tentukan apakah transaksi ini masuk (pendapatan) atau keluar (pengeluaran)
+            if (in_array($type, ['in', 'retur_out'])) {
+                $totalPengeluaran += $subtotal; // Tambahkan ke total pendapatan
+            } elseif (in_array($type, ['out', 'retur_in'])) {
+                $totalPendapatan += $subtotal; // Tambahkan ke total pengeluaran
+            }
+
+            // Simpan hasil subtotal untuk chart
             $result[$label] = $subtotal;
         }
 
+        // Simpan data chart
         $this->transactionChartData = $result;
-        $this->totalTransactionCount = array_sum($result);
+
+        // Hitung total transaksi (pendapatan dan pengeluaran)
+        $this->totalTransactionCount = $totalPendapatan + $totalPengeluaran;
+
+        // Simpan total pendapatan dan pengeluaran untuk digunakan di tampilan
+        $this->totalPendapatan = $totalPendapatan;
+        $this->totalPengeluaran = $totalPengeluaran;
+        $this->totalKeuntungan = $totalPendapatan - $totalPengeluaran;
     }
 
 
@@ -122,7 +153,6 @@ class DataDashboard extends Component
         'out' => 'Penjualan',
         'retur_in' => 'Retur Masuk',
         'retur_out' => 'Retur Keluar',
-        'adjustment' => 'Stock Opname',
     ];
 
 

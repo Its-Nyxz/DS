@@ -58,6 +58,7 @@ class DataStockTransaction extends Component
     public $schedules = []; // List termin
     public $selected_schedule_id = null; // Termin yang dipilih saat bayar
     public $payment_method;
+    public $reference_number;
     public $paymentDetails = [];
     public $isPaymentDetailModalOpen = false;
 
@@ -265,6 +266,7 @@ class DataStockTransaction extends Component
             if ($this->payment_type === 'term') {
                 $this->payment_schedules = $tx->paymentSchedules->map(function ($s) {
                     return [
+                        'id' => $s->id,
                         'amount' => $s->scheduled_amount,
                         'due_date' => Carbon::parse($s->due_date)->format('Y-m-d'),
                     ];
@@ -767,13 +769,32 @@ class DataStockTransaction extends Component
 
     private function storePaymentSchedules(StockTransaction $tx): void
     {
+        $existing = $tx->paymentSchedules()->get()->keyBy('id');
+
         foreach ($this->payment_schedules as $schedule) {
-            $tx->paymentSchedules()->create([
-                'scheduled_amount' => $schedule['amount'],
-                'due_date' => $schedule['due_date'],
-            ]);
+            if (!empty($schedule['id']) && $existing->has($schedule['id'])) {
+                // Update
+                $existing->get($schedule['id'])
+                    ->update([
+                        'scheduled_amount' => $schedule['amount'],
+                        'due_date' => $schedule['due_date'],
+                    ]);
+                $existing->forget($schedule['id']);
+            } else {
+                // Create baru
+                $tx->paymentSchedules()->create([
+                    'scheduled_amount' => $schedule['amount'],
+                    'due_date' => $schedule['due_date'],
+                ]);
+            }
+        }
+
+        // Hapus jadwal yang sudah dihapus dari form
+        if ($existing->isNotEmpty()) {
+            StockTransactionPaymentSchedule::whereIn('id', $existing->keys())->delete();
         }
     }
+
 
     protected function getConversionFactor($itemSupplierId, $toUnitId): float
     {
@@ -1149,7 +1170,7 @@ class DataStockTransaction extends Component
             Notification::send($creator, new UserNotification($message, $url, 'Transaksi Disetujui'));
         }
 
-        $this->showDetail($id);
+        // $this->showDetail($id);
         $this->dispatch('alert-success', ['message' => 'Transaksi berhasil disetujui.']);
     }
 
@@ -1192,7 +1213,6 @@ class DataStockTransaction extends Component
             ));
         }
 
-        $this->isDetailOpen = false;
         $this->dispatch('alert-success', ['message' => 'Transaksi berhasil diproses sebagai penolakan.']);
     }
 
@@ -1290,7 +1310,7 @@ class DataStockTransaction extends Component
                 'method' => $p->payment_method,
                 'ref' => $p->reference_number,
                 'note' => $p->note,
-                'by' => $p->paidBy->name ?? '-',
+                'by' => $p->payer->name ?? '-',
             ];
         })->toArray();
 

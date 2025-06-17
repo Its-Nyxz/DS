@@ -25,6 +25,7 @@ class PermissionSeeder extends Seeder
             'edit-transaksi',
             'delete-transaksi',
             'approve-transaksi',
+            'termin-transaksi',
             'manage-users',
             'manage-unit',
             'manage-brand',
@@ -53,9 +54,11 @@ class PermissionSeeder extends Seeder
             'view-data',
             'view-retur',
             'view-opname',
+            'create-transaksi',
             'edit-transaksi',
             'delete-transaksi',
             'approve-transaksi',
+            'termin-transaksi',
             'manage-users',
             'manage-item',
             'manage-unit',
@@ -79,6 +82,7 @@ class PermissionSeeder extends Seeder
         ]);
 
         $pegawai->syncPermissions([
+            'view-laporan',
             'create-transaksi',
         ]);
     }

@@ -114,10 +114,28 @@
             <livewire:company-banner-manager />
         </div>
 
+        <div class="md:col-span-2">
+            <livewire:company-background-manager />
+        </div>
+
+        <!-- Latitude and Longitude input fields with map next to it -->
+        <div class="md:col-span-2 flex gap-6">
+            <div class="w-1/2">
+                <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Latitude</label>
+                <input type="text" wire:model.live="latitude"
+                    class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-zinc-800 dark:border-zinc-600 dark:text-white"
+                    placeholder="Enter latitude" />
+
+                <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white mt-4">Longitude</label>
+                <input type="text" wire:model.live="longitude"
+                    class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-zinc-800 dark:border-zinc-600 dark:text-white"
+                    placeholder="Enter longitude" />
+            </div>
+
+            <!-- Small map next to Latitude and Longitude -->
+            <div id="small-map" style="width: 25rem; height: 25rem;"></div>
+        </div>
     </div>
-
-
-
     <button wire:click="save"
         class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none 
         focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center 
@@ -125,3 +143,53 @@
         Simpan
     </button>
 </x-card>
+
+@push('scripts')
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const mapElement = document.getElementById('small-map');
+            const latInput = document.querySelector('input[name="latitude"]');
+            const lonInput = document.querySelector('input[name="longitude"]');
+
+            if (!mapElement) return; // Pastikan elemen map ada
+
+            // Set default view to a valid location if no coordinates are given
+            const defaultLatitude = 0;
+            const defaultLongitude = 0;
+
+            const map = L.map(mapElement).setView([defaultLatitude, defaultLongitude], 13);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(map);
+
+            const marker = L.marker([defaultLatitude, defaultLongitude]).addTo(map); // Marker pada posisi awal
+
+            // Fungsi untuk memperbarui peta
+            function updateMap() {
+                const latitude = parseFloat(latInput.value);
+                const longitude = parseFloat(lonInput.value);
+
+                if (!isNaN(latitude) && !isNaN(longitude)) {
+                    map.setView([latitude, longitude], 13);
+                    marker.setLatLng([latitude, longitude]);
+                } else {
+                    // Menangani koordinat yang tidak valid
+                    map.setView([defaultLatitude, defaultLongitude], 13);
+                    marker.setLatLng([defaultLatitude, defaultLongitude]);
+                }
+            }
+
+            // Update peta saat input latitude atau longitude berubah
+            if (latInput && lonInput) {
+                latInput.addEventListener('input', updateMap);
+                lonInput.addEventListener('input', updateMap);
+            }
+
+            // Pastikan peta terinisialisasi dengan benar ketika halaman pertama kali dimuat
+            if (latInput && lonInput && latInput.value && lonInput.value) {
+                updateMap(); // Memperbarui peta dengan nilai yang sudah ada
+            }
+        });
+    </script>
+@endpush

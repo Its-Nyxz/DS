@@ -2,8 +2,7 @@
     {{-- box Icon --}}
     <button class="relative focus:outline-none" title="Notifikasi"
         @click="open = !open; if (open) { $wire.loadLowStockItems() }">
-        <i class="fas fa-envelope text-gray-600 dark:text-gray-300"></i>
-
+        <i class="fa-solid fa-dice-d6 text-gray-600 dark:text-gray-300"></i>
         @if ($unreadCount > 0)
             <span class="absolute top-0 right-0 inline-block w-2 h-2 bg-red-500 rounded-full"></span>
         @endif

@@ -25,6 +25,8 @@ class CompanieSeeder extends Seeder
             'bank_account'  => '1234567890',
             'slogan'        => 'Toko Bangunan Terpercaya',
             'description'   => 'Toko Bangunan Terpercaya, Terjangkau dan Aman',
+            'latitude'      => -7.536853770677419, // Latitude
+            'longitude'     => 110.74203813605412, // Longitude
         ]);
     }
 }

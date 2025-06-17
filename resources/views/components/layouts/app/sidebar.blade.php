@@ -197,6 +197,9 @@
 
     <flux:header class="hidden lg:flex justify-end items-center border-b bg-white dark:bg-zinc-800 dark:border-zinc-700 px-6 py-4">
         <div class="flex items-center space-x-4">
+            {{-- Notifikasi Due Date --}}
+            <livewire:due-date-notification />
+
             {{-- Notifikasi Stok Rendah --}}
             <livewire:stock-notification />
 
@@ -213,6 +216,8 @@
         
         {{-- Notifikasi Bell --}}
         <div class="flex items-center space-x-2">
+            <livewire:due-date-notification />
+           
             <livewire:stock-notification />
             
             <livewire:notifications-bell />
