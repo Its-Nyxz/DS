@@ -63,12 +63,12 @@
                 :expanded="request()->routeIs('transactions.index')">
                  <flux:navlist.item icon="arrow-left" :href="route('transactions.index', ['type' => 'in'])"
                     :current="request()->is('transactions/in')" wire:navigate>
-                    {{ __('Masuk') }}
+                    {{ __('Pembelian') }}
                 </flux:navlist.item>
 
                 <flux:navlist.item icon="arrow-right" :href="route('transactions.index', ['type' => 'out'])"
                     :current="request()->is('transactions/out')" wire:navigate>
-                    {{ __('Keluar') }}
+                    {{ __('Penjualan') }}
                 </flux:navlist.item>
 
                 @can('view-retur')    
@@ -82,6 +82,29 @@
                     <flux:navlist.item icon="book-open" :href="route('transactions.index', ['type' => 'opname'])"
                         :current="request()->is('transactions/opname')" wire:navigate>
                         {{ __('Opname') }}
+                    </flux:navlist.item>
+                @endcan
+            </flux:navlist.group>
+              <flux:navlist.group :heading="__('Kas')" icon="folder" expandable
+                :expanded="request()->routeIs('cashtransactions.index')">
+                @can('manage-utang')    
+                 <flux:navlist.item icon="document-minus" :href="route('cashtransactions.index', ['type' => 'utang'])"
+                    :current="request()->is('cashtransactions/utang')" wire:navigate>
+                    {{ __('Utang') }}
+                </flux:navlist.item>
+                @endcan
+
+                @can('manage-piutang')    
+                <flux:navlist.item icon="document-plus" :href="route('cashtransactions.index', ['type' => 'piutang'])"
+                    :current="request()->is('cashtransactions/piutang')" wire:navigate>
+                    {{ __('Piutang') }}
+                </flux:navlist.item>
+                @endcan
+
+                @can('manage-arus-kas')    
+                    <flux:navlist.item icon="document-chart-bar" :href="route('cashtransactions.index', ['type' => 'arus'])"
+                        :current="request()->is('cashtransactions/arus')" wire:navigate>
+                        {{ __('Arus Kas') }}
                     </flux:navlist.item>
                 @endcan
             </flux:navlist.group>
@@ -197,9 +220,6 @@
 
     <flux:header class="hidden lg:flex justify-end items-center border-b bg-white dark:bg-zinc-800 dark:border-zinc-700 px-6 py-4">
         <div class="flex items-center space-x-4">
-            {{-- Notifikasi Due Date --}}
-            <livewire:due-date-notification />
-
             {{-- Notifikasi Stok Rendah --}}
             <livewire:stock-notification />
 
@@ -216,8 +236,6 @@
         
         {{-- Notifikasi Bell --}}
         <div class="flex items-center space-x-2">
-            <livewire:due-date-notification />
-           
             <livewire:stock-notification />
             
             <livewire:notifications-bell />

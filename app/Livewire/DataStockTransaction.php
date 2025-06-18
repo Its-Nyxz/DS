@@ -13,13 +13,12 @@ use Illuminate\Support\Str;
 use App\Models\ItemSupplier;
 use Livewire\WithPagination;
 use App\Models\UnitConversion;
+use App\Models\CashTransaction;
 use App\Models\StockTransaction;
 use Illuminate\Support\Facades\Log;
 use App\Models\StockTransactionItem;
-use App\Models\StockTransactionPayment;
 use App\Notifications\UserNotification;
 use Illuminate\Support\Facades\Notification;
-use App\Models\StockTransactionPaymentSchedule;
 
 class DataStockTransaction extends Component
 {
@@ -46,21 +45,52 @@ class DataStockTransaction extends Component
     public $orderDirection = 'desc'; // default urutan descending
     public $startDate;
     public $endDate;
+    public $payment_type = 'cash';
     public string $difference_reason = '';
     public string $opname_type = '';
-    public $payment_schedules = []; // array untuk cicilan bertahap (opsional)
-    public string $payment_type = 'cash'; // default 'cash' atau 'term'
-    public bool $isPaymentModalOpen = false;
-    public $payment_transaction_id;
-    public float $payment_amount = 0;
-    public $payment_paid_at;
-    public string $payment_note = '';
-    public $schedules = []; // List termin
-    public $selected_schedule_id = null; // Termin yang dipilih saat bayar
-    public $payment_method;
-    public $reference_number;
-    public $paymentDetails = [];
-    public $isPaymentDetailModalOpen = false;
+
+    public $supplier_name, $item_name;
+    public $item_supplier_name = '';  // Menyimpan pencarian nama item supplier
+    public $item_supplier_suggestions = [];  // Menyimpan hasil suggestion item supplier
+
+    public $suggestions = [
+        'supplier' => [],
+    ];
+
+
+    public function fetchSuggestions($field, $value)
+    {
+        $this->suggestions[$field] = [];
+
+        if ($value) {
+            $slug = Str::slug($value);
+
+            if ($field === 'supplier') {
+                // Ambil suggestion supplier berdasarkan nama
+                $this->suggestions[$field] = Supplier::where('name', 'like', "%$slug%")
+                    ->pluck('name')
+                    ->toArray();
+            }
+        }
+    }
+
+    // Fungsi untuk memilih suggestion
+    public function selectSuggestion($field, $value)
+    {
+        if ($field === 'supplier') {
+            $supplier = Supplier::where('name', $value)->first();
+            $this->supplier_id = $supplier?->id;
+            $this->supplier_name = $value;
+        }
+        // Hapus suggestions setelah dipilih
+        $this->suggestions[$field] = [];
+    }
+
+    // Fungsi untuk menyembunyikan suggestion saat fokus hilang
+    public function hideSuggestions($field)
+    {
+        $this->suggestions[$field] = [];
+    }
 
     public function mount($type)
     {
@@ -149,10 +179,6 @@ class DataStockTransaction extends Component
     {
         $this->resetForm();
 
-        if ($this->type === 'in') {
-            $this->initDefaultPaymentSchedule();
-        }
-
         if ($this->type === 'retur') {
             // Jika subtype sudah diisi saat create, langsung generate kode
             if (in_array($this->subtype, ['retur_in', 'retur_out'])) {
@@ -167,23 +193,6 @@ class DataStockTransaction extends Component
         $this->isModalOpen = true;
     }
 
-    private function initDefaultPaymentSchedule(): void
-    {
-        $this->payment_schedules = [
-            ['amount' => 0, 'due_date' => null],
-        ];
-    }
-
-    public function addPaymentSchedule(): void
-    {
-        $this->payment_schedules[] = ['amount' => 0, 'due_date' => null];
-    }
-
-    public function removePaymentSchedule($index): void
-    {
-        unset($this->payment_schedules[$index]);
-        $this->payment_schedules = array_values($this->payment_schedules);
-    }
     /**
      * Update transaction code when subtype changes (only for 'retur')
      */
@@ -260,22 +269,6 @@ class DataStockTransaction extends Component
             ];
         })->toArray();
 
-        if ($tx->type === 'in') {
-            $this->payment_type = $tx->paymentSchedules()->exists() ? 'term' : 'cash';
-
-            if ($this->payment_type === 'term') {
-                $this->payment_schedules = $tx->paymentSchedules->map(function ($s) {
-                    return [
-                        'id' => $s->id,
-                        'amount' => $s->scheduled_amount,
-                        'due_date' => Carbon::parse($s->due_date)->format('Y-m-d'),
-                    ];
-                })->toArray();
-            } else {
-                $this->payment_schedules = [];
-            }
-        }
-
         // Menghitung total berdasarkan item yang telah diset
         $this->calculateTotal();
 
@@ -285,6 +278,10 @@ class DataStockTransaction extends Component
 
     protected function getSystemStockForItem($itemId)
     {
+        // Ambil stok awal dari model Item
+        $item = Item::find($itemId);
+        $stokAwal = $item ? $item->stock_awal : 0;
+
         $stokMasuk = StockTransactionItem::where('item_id', $itemId)
             ->whereHas('transaction', fn($q) => $q->whereIn('type', ['in', 'retur_in']))
             ->sum('quantity');
@@ -296,7 +293,7 @@ class DataStockTransaction extends Component
         // Penyesuaian dari stock_opname (adjustment)
         $adjustment = StockOpname::where('item_id', $itemId)->sum('difference');
 
-        return $stokMasuk - $stokKeluar + $adjustment;
+        return $stokAwal + $stokMasuk - $stokKeluar + $adjustment;
     }
 
     protected function getEditableQuantity($item)
@@ -441,15 +438,6 @@ class DataStockTransaction extends Component
         $this->tryAutoFillItemsFromPreviousTransaction();
     }
 
-    public function updatedPaymentType($value)
-    {
-        if ($value === 'cash') {
-            $this->payment_schedules = [];
-        } elseif ($value === 'term' && empty($this->payment_schedules)) {
-            $this->payment_schedules[] = ['amount' => 0, 'due_date' => null];
-        }
-    }
-
     public function save()
     {
         $actualType = $this->getActualType(); // Ambil tipe sebenarnya lebih awal
@@ -515,25 +503,9 @@ class DataStockTransaction extends Component
                     }
                 }
 
-                if ($this->payment_type === 'term') {
-
-                    foreach ($this->payment_schedules as $i => $schedule) {
-                        if ($schedule['due_date'] < $this->transaction_date) {
-                            $this->addError("payment_schedules.$i.due_date", 'Tanggal jatuh tempo tidak boleh sebelum tanggal transaksi.');
-                        }
-
-                        if (empty($schedule['amount']) || empty($schedule['due_date'])) {
-                            $this->addError('payment_schedules.' . $i, 'Semua termin harus memiliki jumlah dan jatuh tempo.');
-                        }
-                    }
-
-                    $sum = collect($this->payment_schedules)->sum(function ($ps) {
-                        return is_numeric($ps['amount']) ? floatval($ps['amount']) : 0;
-                    });
-
-                    if ($sum != $this->total) {
-                        $this->addError('payment_schedules', 'Total termin harus sama dengan total transaksi.');
-                    }
+                if (!$this->payment_type) {
+                    $this->addError('payment_type', 'Tipe pembayaran harus dipilih.');
+                    return;
                 }
 
                 if ($this->getErrorBag()->isNotEmpty()) {
@@ -545,63 +517,22 @@ class DataStockTransaction extends Component
             if ($this->type === 'out') {
                 foreach ($this->items as $i => $item) {
                     $itemSupplier = ItemSupplier::with('item')->find($item['item_supplier_id']);
-
                     if (!$itemSupplier || !$itemSupplier->item) {
                         $this->addError("items.$i.item_supplier_id", 'Barang tidak ditemukan.');
                         continue;
                     }
-
-                    $itemId = $itemSupplier->item_id;
-
-                    // Menghitung stok masuk dan keluar
-                    $stokMasuk = StockTransactionItem::where('item_id', $itemId)
-                        ->whereHas('transaction', function ($q) {
-                            $q->where(function ($q2) {
-                                $q2->where('type', 'in')->where('is_approved', true)
-                                    ->orWhere('type', 'retur_in');
-                            });
-                        })
-                        ->sum('quantity');
-
-                    $stokKeluar = StockTransactionItem::where('item_id', $itemId)
-                        ->whereHas('transaction', function ($q) {
-                            $q->whereIn('type', ['out', 'retur_out']);
-                        })
-                        ->sum('quantity');
-
-                    $stokOpname = StockTransactionItem::where('item_id', $itemId)
-                        ->whereHas('transaction', fn($q) => $q->where('type', 'adjustment'))
-                        ->orderByDesc('transaction_date')
-                        ->value('quantity');
-
-                    // Mendapatkan konversi unit
-                    $fromUnitId = $itemSupplier->item->unit_id; // ID unit asal
-                    $toUnitId = $item['selected_unit_id'] ?? $fromUnitId; // ID unit tujuan (dari form atau unit asal)
-
-                    // Dapatkan faktor konversi dengan fallback jika tidak ada konversi
-                    $conversionFactor = $this->getConversionFactor($fromUnitId, $toUnitId);
-
-                    // Jika tidak ada konversi, set konversi ke 1 (tidak ada perubahan unit)
-                    if ($conversionFactor === null) {
-                        $conversionFactor = 1; // Default konversi jika tidak ada konversi yang ditemukan
-                    }
-
-                    // Menghitung stok sekarang dengan faktor konversi
-                    $stokSekarang = isset($stokOpname)
-                        ? $stokOpname * $conversionFactor  // Mengonversi stok opname sesuai unit
-                        : ($stokMasuk - $stokKeluar) * $conversionFactor;  // Mengonversi stok masuk dan keluar
-
-                    if ($stokSekarang < 0) {
-                        $stokSekarang = 0;  // Set stok menjadi 0 jika hasil perhitungan stok negatif
-                    }
-
-                    // Debug untuk melihat nilai stokSekarang
-                    // dd($stokSekarang, $item['quantity'] > $stokSekarang);
-
-                    // Bandingkan dengan quantity yang ingin dikeluarkan
-                    if ($item['quantity'] > $stokSekarang) {
-                        $this->addError("items.$i.quantity", 'Stok tidak mencukupi. Tersedia: ' . $stokSekarang);
+                    $systemStock = $item['system_stock'];
+                    if ($item['quantity'] > $systemStock) {
+                        $this->addError("items.$i.quantity", 'Stok tidak mencukupi. Tersedia: '. $systemStock);
                         return; // Hentikan eksekusi jika stok tidak mencukupi
+                    }
+
+                    if (!$this->payment_type) {
+                        $this->addError('payment_type', 'Tipe pembayaran harus dipilih.');
+                        return;
+                    }
+                    if ($this->getErrorBag()->isNotEmpty()) {
+                        return;
                     }
                 }
             }
@@ -632,6 +563,7 @@ class DataStockTransaction extends Component
                     'transaction_code' => $this->transaction_code,
                     'type' => $this->getActualType(),
                     'created_by' => auth()->id(),
+                    'payment_type' => $this->payment_type ?? null,
                 ]);
 
             if ($tx->is_approved) {
@@ -643,27 +575,9 @@ class DataStockTransaction extends Component
                 'customer_id' => $this->customer_id ?? null,
                 'transaction_date' => Carbon::parse($this->transaction_date)->format('Y-m-d H:i:s'),
                 'description' => $this->description,
+                'payment_type' => $this->payment_type ?? null,
             ]);
 
-
-            if ($this->type === 'in') {
-                if ($this->payment_type === 'term') {
-                    $this->storePaymentSchedules($tx);
-
-                    $tx->update([
-                        'total_amount' => array_sum(array_column($this->payment_schedules, 'amount')),
-                        'is_fully_paid' => false,
-                        'fully_paid_at' => null,
-                    ]);
-                } else {
-                    // Pembayaran cash langsung lunas
-                    $tx->update([
-                        'total_amount' => $this->total,
-                        'is_fully_paid' => true,
-                        'fully_paid_at' => now(),
-                    ]);
-                }
-            }
 
             $tx->items()->delete();
 
@@ -691,16 +605,22 @@ class DataStockTransaction extends Component
                 ]);
             }
 
+            // Simpan transaksi kas hanya untuk tipe 'in' dan 'out'
+            if ($actualType === 'in' || $actualType === 'out') {
+                $this->saveCashTransaction($tx);
+            }
+
+
             $this->resetForm();
             if ($this->type === 'in') {
                 $pemilikUsers = User::role('pemilik')->get();
 
-                $message = 'Transaksi stok masuk <span class="font-bold">'
+                $message = 'Transaksi stok masuk atau pembelian <span class="font-bold">'
                     . $this->transaction_code . '</span> tanggal <span class="font-bold">'
                     . $this->transaction_date . '</span> membutuhkan <span class="text-yellow-500 font-semibold">persetujuan</span>.';
 
                 $url = '/transactions/in'; // ✅ URL diperbaiki
-                $title = 'Persetujuan Transaksi Masuk'; // ✅ Tambahkan title
+                $title = 'Persetujuan Transaksi Pembelian'; // ✅ Tambahkan title
 
                 Notification::send($pemilikUsers, new UserNotification($message, $url, $title));
             }
@@ -767,31 +687,56 @@ class DataStockTransaction extends Component
         $this->isModalOpen = false;
     }
 
-    private function storePaymentSchedules(StockTransaction $tx): void
+    protected function saveCashTransaction($stockTransaction)
     {
-        $existing = $tx->paymentSchedules()->get()->keyBy('id');
+        // Cek apakah sebelumnya sudah ada transaksi kas terkait
+        $existingCashTransaction = CashTransaction::where('stock_transaction_id', $stockTransaction->id)
+            ->first();
 
-        foreach ($this->payment_schedules as $schedule) {
-            if (!empty($schedule['id']) && $existing->has($schedule['id'])) {
-                // Update
-                $existing->get($schedule['id'])
-                    ->update([
-                        'scheduled_amount' => $schedule['amount'],
-                        'due_date' => $schedule['due_date'],
-                    ]);
-                $existing->forget($schedule['id']);
-            } else {
-                // Create baru
-                $tx->paymentSchedules()->create([
-                    'scheduled_amount' => $schedule['amount'],
-                    'due_date' => $schedule['due_date'],
-                ]);
-            }
+        // Jika ada transaksi kas yang terkait dan payment_type berubah
+        if ($existingCashTransaction && $existingCashTransaction->payment_method !== $this->payment_type) {
+            // Soft delete transaksi kas yang lama
+            $existingCashTransaction->delete();
         }
 
-        // Hapus jadwal yang sudah dihapus dari form
-        if ($existing->isNotEmpty()) {
-            StockTransactionPaymentSchedule::whereIn('id', $existing->keys())->delete();
+        if ($this->payment_type === 'cash') {
+            // Pembayaran tunai (cash)
+            CashTransaction::create([
+                'transaction_type' => 'stock',
+                'stock_transaction_id' => $stockTransaction->id,
+                'amount' => $this->total,
+                'transaction_date' => $stockTransaction->transaction_date,
+                'payment_method' => 'cash',
+                'reference_number' => 'CASH-' . now()->format('YmdHis'),
+                'note' => $stockTransaction->type === 'in' ? 'Pembelian' : 'Penjualan' . ' | Lunas',
+                'debt_credit' => null, // Tidak ada utang/piutang
+            ]);
+
+            // Update status pembayaran pada transaksi stok menjadi lunas
+            $stockTransaction->update([
+                'total_amount' => $this->total,
+                'is_fully_paid' => true,
+                'fully_paid_at' => now(),
+            ]);
+        } elseif ($this->payment_type === 'term') {
+            // Pembayaran cicilan (term)
+            CashTransaction::create([
+                'transaction_type' => 'stock',
+                'stock_transaction_id' => $stockTransaction->id,
+                'amount' => 0, // Belum ada pembayaran, cicilan akan dibayar di lain waktu
+                'transaction_date' => now(),
+                'payment_method' => 'term',
+                'reference_number' => 'TERM-' . now()->format('YmdHis'),
+                'note' => $stockTransaction->type === 'in' ? 'Cicilan Pembelian' : 'Cicilan Penjualan',
+                'debt_credit' => $stockTransaction->type === 'in' ? 'utang' : 'piutang', // Tentukan apakah ini utang atau piutang
+            ]);
+
+            // Update status pembayaran pada transaksi stok menjadi tidak lunas (belum dibayar penuh)
+            $stockTransaction->update([
+                'total_amount' => $this->total,
+                'is_fully_paid' => false,
+                'fully_paid_at' => null,
+            ]);
         }
     }
 
@@ -809,21 +754,11 @@ class DataStockTransaction extends Component
         return $conv?->factor ?? 1;  // Mengembalikan faktor konversi atau 1 jika tidak ada
     }
 
-    protected function getAllUnitConversionsForItem($itemId)
-    {
-        return UnitConversion::with('toUnit')
-            ->whereIn('item_supplier_id', function ($query) use ($itemId) {
-                $query->select('id')
-                    ->from('item_suppliers')
-                    ->where('item_id', $itemId);
-            })
-            ->get();
-    }
-
     public function delete($id)
     {
         $tx = StockTransaction::findOrFail($id);
         $tx->items()->delete(); // ini akan soft delete jika model pakai SoftDeletes
+        $tx->cashTransactions()->delete(); // Soft delete transaksi kas yang terkait
         $tx->delete(); // ini juga soft delete
     }
 
@@ -832,14 +767,18 @@ class DataStockTransaction extends Component
         $tx = StockTransaction::withTrashed()->findOrFail($id);
         $tx->restore();
         $tx->items()->withTrashed()->restore();
+        // Restore transaksi kas yang terkait
+        $tx->cashTransactions()->withTrashed()->restore(); // Pastikan menggunakan 'withTrashed' untuk mengembalikan data yang sudah dihapus
     }
 
     public function resetForm()
     {
         $this->editingId = null;
         $this->supplier_id = null;
+        $this->supplier_name = '';
         $this->customer_name = '';
         $this->difference_reason = '';
+        $this->payment_type = 'cash';
         $this->opname_type = '';
         $this->customer_id = null;
         $this->subtype = '';
@@ -915,15 +854,35 @@ class DataStockTransaction extends Component
         $itemSupplier = ItemSupplier::with('item', 'unitConversions')->find((int) $value);
 
         if ($itemSupplier) {
+
+            // Pastikan min_qty diambil dari item yang sesuai dengan item_id
+            $minQty = $itemSupplier->min_qty;
+
             // Pastikan selected_unit_id adalah integer dan reset selected_unit_id saat barang berubah
-            $this->items[$index]['selected_unit_id'] = null; // Reset selected_unit_id
+            $this->items[$index]['selected_unit_id'] = $itemSupplier->item->unit_id ?? null; // Set unit_id default jika ada
 
             // Simpan informasi dasar item
             $this->items[$index]['item_supplier_id'] = $itemSupplier->id;
             $this->items[$index]['item_id'] = $itemSupplier->item_id;
-            $this->items[$index]['unit_price'] = (float) $itemSupplier->harga_beli;
-            if (!isset($this->items[$index]['quantity'])) {
-                $this->setQuantity($index, 1);
+            // Tentukan harga berdasarkan tipe transaksi
+            if ($this->type === 'in') {
+                // Jika tipe transaksi adalah 'in', ambil harga_beli dari item supplier
+                $this->items[$index]['unit_price'] = (float) $itemSupplier->harga_beli;
+            } else {
+                // Jika tipe transaksi bukan 'in', ambil harga_jual dari item
+                $this->items[$index]['unit_price'] = (float) $itemSupplier->item->harga_jual;
+            }
+            // Jika quantity tidak ada atau lebih kecil dari min_qty, set ke min_qty
+            if ($this->type === 'in') {
+                if (!isset($this->items[$index]['quantity']) || $this->items[$index]['quantity'] < $minQty) {
+                    // Jika quantity kurang dari min_qty atau tidak ada, update ke min_qty
+                    $this->setQuantity($index, $minQty);  // Set quantity ke min_qty
+                }
+            } else {
+                if (!isset($this->items[$index]['quantity'])) {
+                    // Jika quantity kurang dari min_qty atau tidak ada, update ke min_qty
+                    $this->setQuantity($index, 1);  // Set quantity ke min_qty
+                }
             }
             $this->items[$index]['subtotal'] = $itemSupplier->harga_beli * $this->items[$index]['quantity'];
 
@@ -1073,6 +1032,19 @@ class DataStockTransaction extends Component
             return (float) ($i['quantity'] ?? 0) * (float) ($i['unit_price'] ?? 0);
         });
     }
+
+
+    protected function getAllUnitConversionsForItem($itemId)
+    {
+        return UnitConversion::with('toUnit')
+            ->whereIn('item_supplier_id', function ($query) use ($itemId) {
+                $query->select('id')
+                    ->from('item_suppliers')
+                    ->where('item_id', $itemId);
+            })
+            ->get();
+    }
+
 
     public function showDetail($id)
     {
@@ -1225,97 +1197,6 @@ class DataStockTransaction extends Component
         };
     }
 
-    public function openPaymentModal($transactionId)
-    {
-        $this->payment_transaction_id = $transactionId;
-
-        $tx = StockTransaction::with('paymentSchedules')->findOrFail($transactionId);
-        $this->schedules = $tx->paymentSchedules->map(function ($s) {
-            return [
-                'id' => $s->id,
-                'due_date' => Carbon::parse($s->due_date)->format('d/m/Y'),
-                'amount' => $s->scheduled_amount,
-                'is_paid' => $s->is_paid,
-            ];
-        })->toArray();
-
-        $this->selected_schedule_id = null;
-        $this->payment_paid_at = now()->format('Y-m-d');
-        $this->payment_amount = 0;
-        $this->payment_note = '';
-        $this->isPaymentModalOpen = true;
-    }
-
-    public function updatedSelectedScheduleId($value)
-    {
-        if ($value) {
-            $schedule = StockTransactionPaymentSchedule::find($value);
-            if ($schedule && !$schedule->is_paid) {
-                $this->payment_amount = $schedule->scheduled_amount;
-            }
-        } else {
-            $this->payment_amount = null;
-        }
-    }
-
-
-    public function savePayment()
-    {
-        $this->validate([
-            'payment_amount' => 'required|numeric|min:1',
-            'payment_paid_at' => 'required|date',
-            'payment_method' => 'required|string',
-        ]);
-
-        $tx = StockTransaction::findOrFail($this->payment_transaction_id);
-
-        $payment = $tx->payments()->create([
-            'payment_schedule_id' => $this->selected_schedule_id,
-            'amount' => $this->payment_amount,
-            'payment_date' => $this->payment_paid_at,
-            'payment_method' => $this->payment_method,
-            'reference_number' => $this->reference_number ?? 'TRMN-' . now()->format('Ymd-His'),
-            'note' => $this->payment_note,
-            'paid_by' => auth()->id(),
-        ]);
-
-        // Jika user pilih termin tertentu, tandai sudah dibayar
-        if ($this->selected_schedule_id) {
-            $schedule = StockTransactionPaymentSchedule::find($this->selected_schedule_id);
-            $schedule->update([
-                'is_paid' => true,
-                'paid_at' => $this->payment_paid_at,
-            ]);
-        }
-
-        // Update status lunas transaksi
-        $totalPaid = $tx->payments()->sum('amount');
-        $tx->update([
-            'is_fully_paid' => $totalPaid >= $tx->items->sum('subtotal'),
-            'fully_paid_at' => $totalPaid >= $tx->items->sum('subtotal') ? now() : null,
-        ]);
-
-        $this->isPaymentModalOpen = false;
-        $this->dispatch('alert-success', ['message' => 'Pembayaran berhasil disimpan.']);
-    }
-
-    public function openPaymentDetailModal($transactionId)
-    {
-        $transaction = StockTransaction::with('payments.payer')->findOrFail($transactionId);
-
-        $this->paymentDetails = $transaction->payments->map(function ($p) {
-            return [
-                'date' => $p->payment_date->format('d/m/Y'),
-                'amount' => $p->amount,
-                'method' => $p->payment_method,
-                'ref' => $p->reference_number,
-                'note' => $p->note,
-                'by' => $p->payer->name ?? '-',
-            ];
-        })->toArray();
-
-        $this->isPaymentDetailModalOpen = true;
-    }
 
     public function exportDetailPdf($id)
     {
@@ -1439,8 +1320,8 @@ class DataStockTransaction extends Component
         }
 
         $typeLabels = [
-            'in' => 'Transaksi Masuk',
-            'out' => 'Transaksi Keluar',
+            'in' => 'Transaksi Pembelian',
+            'out' => 'Transaksi Penjualan',
             'retur_in' => 'Retur dari Customer',
             'retur_out' => 'Retur ke Supplier',
             'adjustment' => 'Stock Opname',

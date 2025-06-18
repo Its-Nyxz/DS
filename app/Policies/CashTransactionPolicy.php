@@ -2,11 +2,11 @@
 
 namespace App\Policies;
 
-use App\Models\StockTransactionPayment;
+use App\Models\CashTransaction;
 use App\Models\User;
 use Illuminate\Auth\Access\Response;
 
-class StockTransactionPaymentPolicy
+class CashTransactionPolicy
 {
     /**
      * Determine whether the user can view any models.
@@ -19,7 +19,7 @@ class StockTransactionPaymentPolicy
     /**
      * Determine whether the user can view the model.
      */
-    public function view(User $user, StockTransactionPayment $stockTransactionPayment): bool
+    public function view(User $user, CashTransaction $cashTransaction): bool
     {
         return false;
     }
@@ -35,7 +35,7 @@ class StockTransactionPaymentPolicy
     /**
      * Determine whether the user can update the model.
      */
-    public function update(User $user, StockTransactionPayment $stockTransactionPayment): bool
+    public function update(User $user, CashTransaction $cashTransaction): bool
     {
         return false;
     }
@@ -43,7 +43,7 @@ class StockTransactionPaymentPolicy
     /**
      * Determine whether the user can delete the model.
      */
-    public function delete(User $user, StockTransactionPayment $stockTransactionPayment): bool
+    public function delete(User $user, CashTransaction $cashTransaction): bool
     {
         return false;
     }
@@ -51,7 +51,7 @@ class StockTransactionPaymentPolicy
     /**
      * Determine whether the user can restore the model.
      */
-    public function restore(User $user, StockTransactionPayment $stockTransactionPayment): bool
+    public function restore(User $user, CashTransaction $cashTransaction): bool
     {
         return false;
     }
@@ -59,7 +59,7 @@ class StockTransactionPaymentPolicy
     /**
      * Determine whether the user can permanently delete the model.
      */
-    public function forceDelete(User $user, StockTransactionPayment $stockTransactionPayment): bool
+    public function forceDelete(User $user, CashTransaction $cashTransaction): bool
     {
         return false;
     }

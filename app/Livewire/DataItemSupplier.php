@@ -57,7 +57,7 @@ class DataItemSupplier extends Component
                 ->get()
                 ->map(fn($item) => [
                     'id' => $item->id,
-                    'label' => $item->name . ' - ' . ($item->brand->name ?? '-'),
+                    'label' => $item->name . ' ' . ($item->brand->name ?? '-'),
                 ]);
 
             $this->suggestions['item'][$index] = $query->toArray();
@@ -86,7 +86,7 @@ class DataItemSupplier extends Component
             $item = Item::find($value); // $value adalah ID
             if ($item) {
                 $this->itemInputs[$indexOrValue]['item_id'] = $item->id;
-                $this->itemInputs[$indexOrValue]['item_name'] = $item->name . ' - ' . ($item->brand->name ?? '-');
+                $this->itemInputs[$indexOrValue]['item_name'] = $item->name . ' ' . ($item->brand->name ?? '-');
             }
             $this->suggestions['item'][$indexOrValue] = [];
         }
@@ -143,7 +143,7 @@ class DataItemSupplier extends Component
 
             $this->itemInputs[] = [
                 'item_id' => $item->id,
-                'item_name' => $item->name . ' - ' . ($item->brand->name ?? '-'),
+                'item_name' => $item->name . ' ' . ($item->brand->name ?? '-'),
                 'harga_beli' => $item->pivot->harga_beli,
                 'is_default' => (bool) $item->pivot->is_default,
                 'min_qty' => $item->pivot->min_qty,

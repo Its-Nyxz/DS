@@ -137,10 +137,10 @@ class DataReportStock extends Component
         });
 
 
-        $total = round(max(0, $jumlahMasuk + $jumlahReturIn - $jumlahKeluar - $jumlahReturOut + $totalPenyesuaian), 2);
+        $total = round(max(0,  $item->stock_awal + $jumlahMasuk + $jumlahReturIn - $jumlahKeluar - $jumlahReturOut + $totalPenyesuaian), 2);
 
         $this->selectedItemStockDetails = [[
-            'stok_awal' => 0, // bisa dihitung jika ingin, misalnya dari data sebelum $start
+            'stok_awal' => $item->stock_awal, // bisa dihitung jika ingin, misalnya dari data sebelum $start
             'masuk' => $jumlahMasuk,
             'keluar' => $jumlahKeluar,
             'retur_in' => $jumlahReturIn,
@@ -256,8 +256,7 @@ class DataReportStock extends Component
             return (float) $op->difference;
         });
 
-
-        $stokSekarang = $stokMasuk + $stokReturIn - $stokKeluar - $stokReturOut + $jumlahPenyesuaian;
+        $stokSekarang = $itemSupplier->item->stock_awal + $stokMasuk + $stokReturIn - $stokKeluar - $stokReturOut + $jumlahPenyesuaian;
 
         return round(max(0, $stokSekarang), 2);
     }

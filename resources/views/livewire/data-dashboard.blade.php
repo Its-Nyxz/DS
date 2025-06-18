@@ -48,7 +48,7 @@
         <!-- Card 3: Transaksi Masuk -->
         <div
             class="bg-white dark:bg-zinc-800 rounded-xl shadow border border-neutral-200 dark:border-neutral-700 p-6 flex flex-col h-full">
-            <h2 class="text-xl font-bold text-gray-800 dark:text-white mb-4">Transaksi Masuk Hari Ini</h2>
+            <h2 class="text-xl font-bold text-gray-800 dark:text-white mb-4">Transaksi Pembelian Hari Ini</h2>
             <div class="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg mb-4">
                 <div class="grid grid-cols-3 gap-3 text-center">
                     @foreach ([['Pending', $pendingIn, 'orange'], ['Approved', $approvedIn, 'teal'], ['Total', $totalIn, 'blue']] as [$label, $val, $color])

@@ -1,7 +1,7 @@
 @php
     $typeLabels = [
-        'in' => 'Transaksi Masuk',
-        'out' => 'Transaksi Keluar',
+        'in' => 'Transaksi Pembelian',
+        'out' => 'Transaksi Penjualan',
         'retur_in' => 'Retur dari Customer',
         'retur_out' => 'Retur ke Supplier',
         'adjustment' => 'Stock Opname',

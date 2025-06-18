@@ -16,7 +16,7 @@ class DataItems extends Component
     use WithPagination, WithFileUploads;
 
 
-    public $name, $unit, $brand, $img, $itemId, $min_stock;
+    public $name, $unit, $brand, $img, $itemId, $min_stock, $harga_jual, $stock_awal;
     public $isModalOpen = false;
     public $search = '';
     public $brands, $units;
@@ -117,6 +117,8 @@ class DataItems extends Component
         $this->itemId = $item->id;
         $this->name = $item->name;
         $this->min_stock = $item->min_stock;
+        $this->harga_jual = $item->harga_jual;
+        $this->stock_awal = $item->stock_awal;
 
         // ID untuk disimpan
         $this->unit = $item->unit_id;
@@ -157,6 +159,8 @@ class DataItems extends Component
             'unit' => 'required|exists:units,id',
             'brand' => 'nullable|exists:brands,id',
             'min_stock' => 'nullable|integer|min:0',
+            'harga_jual' => 'required|numeric|min:0',  // Added validation for harga_jual
+            'stock_awal' => 'nullable|integer|min:0',   // Added validation for stok_awal
             'img' => 'nullable|image|max:2048', // <= Validasi upload
         ]);
 
@@ -179,7 +183,8 @@ class DataItems extends Component
         $item->unit_id = $this->unit;
         $item->brand_id = $this->brand;
         $item->min_stock = $this->min_stock;
-
+        $item->harga_jual = $this->harga_jual;
+        $item->stock_awal = $this->stock_awal;
 
         // Gambar baru?
         if ($this->img) {
@@ -226,6 +231,8 @@ class DataItems extends Component
             'brand_name',
             'itemId',
             'min_stock',
+            'harga_jual',
+            'stock_awal',
             'img',
             'isModalOpen'
         ]);

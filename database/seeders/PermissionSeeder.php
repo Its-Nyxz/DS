@@ -34,6 +34,9 @@ class PermissionSeeder extends Seeder
             'manage-supplier-item',
             'manage-companie',
             'manage-permissions',
+            'manage-arus-kas',
+            'manage-utang',
+            'manage-piutang',
         ];
 
         // Buat permission satu per satu
@@ -67,6 +70,9 @@ class PermissionSeeder extends Seeder
             'manage-supplier-item',
             'manage-companie',
             'manage-permissions',
+            'manage-arus-kas',
+            'manage-utang',
+            'manage-piutang',
         ]);
 
         $admin->syncPermissions([

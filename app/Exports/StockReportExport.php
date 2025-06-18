@@ -53,69 +53,63 @@ class StockReportExport implements FromCollection, WithHeadings, WithTitle
     public function calculateStock($itemId)
     {
         $itemSupplier = ItemSupplier::where('item_id', $itemId)->first();
+
         if (!$itemSupplier) {
             return 0;
         }
 
-        [$start, $end] = $this->getDateRange();
-
-        // Stok masuk (approved)
         $stokMasuk = StockTransactionItem::where('item_id', $itemId)
-            ->whereHas(
-                'transaction',
-                fn($q) =>
-                $q->where('type', 'in')
-                    ->where('is_approved', true)
-                    ->whereBetween('transaction_date', [$start, $end])
-            )->sum('quantity');
+            ->whereHas('transaction', function ($q) {
+                $q->where('type', 'in')->where('is_approved', true);
+                if ($this->startDate && $this->endDate) {
+                    [$start, $end] = $this->getDateRange();
+                    $q->whereBetween('transaction_date', [$start, $end]);
+                }
+            })->sum('quantity');
 
-        // Retur masuk
         $stokReturIn = StockTransactionItem::where('item_id', $itemId)
-            ->whereHas(
-                'transaction',
-                fn($q) =>
-                $q->where('type', 'retur_in')
-                    ->whereBetween('transaction_date', [$start, $end])
-            )->sum('quantity');
+            ->whereHas('transaction', function ($q) {
+                $q->where('type', 'retur_in');
+                if ($this->startDate && $this->endDate) {
+                    [$start, $end] = $this->getDateRange();
+                    $q->whereBetween('transaction_date', [$start, $end]);
+                }
+            })->sum('quantity');
 
-        // Keluar
         $stokKeluar = StockTransactionItem::where('item_id', $itemId)
-            ->whereHas(
-                'transaction',
-                fn($q) =>
-                $q->where('type', 'out')
-                    ->whereBetween('transaction_date', [$start, $end])
-            )->sum('quantity');
+            ->whereHas('transaction', function ($q) {
+                $q->where('type', 'out');
+                if ($this->startDate && $this->endDate) {
+                    [$start, $end] = $this->getDateRange();
+                    $q->whereBetween('transaction_date', [$start, $end]);
+                }
+            })->sum('quantity');
 
-        // Retur keluar
         $stokReturOut = StockTransactionItem::where('item_id', $itemId)
-            ->whereHas(
-                'transaction',
-                fn($q) =>
-                $q->where('type', 'retur_out')
-                    ->whereBetween('transaction_date', [$start, $end])
-            )->sum('quantity');
+            ->whereHas('transaction', function ($q) {
+                $q->where('type', 'retur_out');
+                if ($this->startDate && $this->endDate) {
+                    [$start, $end] = $this->getDateRange();
+                    $q->whereBetween('transaction_date', [$start, $end]);
+                }
+            })->sum('quantity');
 
-        // Penyesuaian
+        // Ambil semua penyesuaian untuk item ini
         $penyesuaian = StockOpname::where('item_id', $itemId)
             ->with('stockTransaction')
-            ->whereHas(
-                'stockTransaction',
-                fn($q) =>
-                $q->where('type', 'adjustment')
-                    ->whereBetween('transaction_date', [$start, $end])
-            )->get();
+            ->whereHas('stockTransaction', function ($q) {
+                $q->where('type', 'adjustment');
+                if ($this->startDate && $this->endDate) {
+                    [$start, $end] = $this->getDateRange();
+                    $q->whereBetween('transaction_date', [$start, $end]);
+                }
+            })->get();
 
         $jumlahPenyesuaian = $penyesuaian->sum(function ($op) {
-            $diff = $op->difference ?? $op->quantity; // fallback jika difference null
-            return match ($op->status) {
-                'tambah' => $diff,
-                'penyusutan' => $diff, // diasumsikan sudah negatif
-                default => 0,
-            };
+            return (float) $op->difference;
         });
 
-        $stokSekarang = $stokMasuk + $stokReturIn - $stokKeluar - $stokReturOut + $jumlahPenyesuaian;
+        $stokSekarang = $itemSupplier->item->stock_awal + $stokMasuk + $stokReturIn - $stokKeluar - $stokReturOut + $jumlahPenyesuaian;
 
         return round(max(0, $stokSekarang), 2);
     }

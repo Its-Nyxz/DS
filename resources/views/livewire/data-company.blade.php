@@ -131,9 +131,6 @@
                     class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-zinc-800 dark:border-zinc-600 dark:text-white"
                     placeholder="Enter longitude" />
             </div>
-
-            <!-- Small map next to Latitude and Longitude -->
-            <div id="small-map" style="width: 25rem; height: 25rem;"></div>
         </div>
     </div>
     <button wire:click="save"
@@ -143,53 +140,3 @@
         Simpan
     </button>
 </x-card>
-
-@push('scripts')
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const mapElement = document.getElementById('small-map');
-            const latInput = document.querySelector('input[name="latitude"]');
-            const lonInput = document.querySelector('input[name="longitude"]');
-
-            if (!mapElement) return; // Pastikan elemen map ada
-
-            // Set default view to a valid location if no coordinates are given
-            const defaultLatitude = 0;
-            const defaultLongitude = 0;
-
-            const map = L.map(mapElement).setView([defaultLatitude, defaultLongitude], 13);
-
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; OpenStreetMap contributors'
-            }).addTo(map);
-
-            const marker = L.marker([defaultLatitude, defaultLongitude]).addTo(map); // Marker pada posisi awal
-
-            // Fungsi untuk memperbarui peta
-            function updateMap() {
-                const latitude = parseFloat(latInput.value);
-                const longitude = parseFloat(lonInput.value);
-
-                if (!isNaN(latitude) && !isNaN(longitude)) {
-                    map.setView([latitude, longitude], 13);
-                    marker.setLatLng([latitude, longitude]);
-                } else {
-                    // Menangani koordinat yang tidak valid
-                    map.setView([defaultLatitude, defaultLongitude], 13);
-                    marker.setLatLng([defaultLatitude, defaultLongitude]);
-                }
-            }
-
-            // Update peta saat input latitude atau longitude berubah
-            if (latInput && lonInput) {
-                latInput.addEventListener('input', updateMap);
-                lonInput.addEventListener('input', updateMap);
-            }
-
-            // Pastikan peta terinisialisasi dengan benar ketika halaman pertama kali dimuat
-            if (latInput && lonInput && latInput.value && lonInput.value) {
-                updateMap(); // Memperbarui peta dengan nilai yang sudah ada
-            }
-        });
-    </script>
-@endpush

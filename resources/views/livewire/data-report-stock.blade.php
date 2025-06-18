@@ -134,6 +134,11 @@
 
                             <table class="w-full text-sm bg-white dark:bg-zinc-800 border rounded overflow-hidden">
                                 <tr>
+                                    <td class="p-2">Stok Awal</td>
+                                    <td class="p-2 text-right">
+                                        {{ number_format($stock['stok_awal'] * $selectedConversionFactor, 2) }}</td>
+                                </tr>
+                                <tr>
                                     <td class="p-2">Jumlah Masuk</td>
                                     <td class="p-2 text-right">
                                         {{ number_format($stock['masuk'] * $selectedConversionFactor, 2) }}</td>

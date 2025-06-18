@@ -45,25 +45,8 @@ class StockTransaction extends Model
         return $this->belongsTo(Customer::class);
     }
 
-    public function paymentSchedules()
+    public function cashTransactions()
     {
-        return $this->hasMany(StockTransactionPaymentSchedule::class);
-    }
-
-    public function payments()
-    {
-        return $this->hasMany(StockTransactionPayment::class);
-    }
-
-    // Total yang sudah dibayar
-    public function getTotalPaidAttribute()
-    {
-        return $this->payments()->sum('amount');
-    }
-
-    // Status lunas
-    public function getIsFullyPaidAttribute()
-    {
-        return $this->paymentSchedules()->where('is_paid', false)->count() === 0;
+        return $this->hasMany(CashTransaction::class, 'stock_transaction_id'); // Pastikan 'stock_transaction_id' adalah kolom foreign key
     }
 }

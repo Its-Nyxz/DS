@@ -12,6 +12,8 @@ window.Swal = Swal;
 window.DataTable = DataTable;
 import ApexCharts from "apexcharts";
 window.ApexCharts = ApexCharts;
+import $ from "jquery";
+import "select2";
 
 window.confirmAlert = function (message, confirmButtonText, callback) {
     const theme = getThemeMode();

@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ItemController;
 use App\Http\Controllers\UnitController;
 use App\Http\Controllers\BrandController;
+use App\Http\Controllers\CashTransactionController;
 use App\Http\Controllers\CompanieController;
 use App\Http\Controllers\ItemSupplierController;
 use App\Http\Controllers\ReportController;
@@ -55,6 +56,10 @@ Route::get('transactions/{type}', [TransactionController::class, 'index'])
     ->name('transactions.index')
     ->where('type', 'in|out|retur|opname');
 
+// ✅ Kas
+Route::get('cashtransactions/{type}', [CashTransactionController::class, 'index'])
+    ->name('cashtransactions.index')
+    ->where('type', 'utang|piutang|arus');
 // Route::resource('transactions', TransactionController::class);
 // Route::resource('stockin', StockInController::class);
 // Route::resource('stockout', StockOutController::class);

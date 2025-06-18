@@ -44,19 +44,22 @@ class ItemsImport implements ToModel, WithHeadingRow
 
             // Jika item sudah ada, biarkan SKU tetap
             if ($item) {
-                // Update item tanpa mengubah SKU yang sudah ada
                 $item->update([
-                    'min_stock' => $row['min_stock'] ?? 0,
+                    'min_stock' => $row['min_stock'] ?? 0,  // Default min_stock if not provided
+                    'harga_jual' => $row['harga_jual'] ?? 0,  // Default harga_jual if not provided
+                    'stock_awal' => $row['stock_awal'] ?? 0,  // Default stok_awal if not provided
                 ]);
                 return $item;
             } else {
-                // Jika item baru, buat SKU baru
+                // If item doesn't exist, create new item with SKU
                 return Item::create([
                     'name' => $row['name'],
-                    'sku' => $this->generateSKU($row['name']),  // SKU otomatis dihasilkan
+                    'sku' => $this->generateSKU($row['name']),  // Automatically generate SKU
                     'unit_id' => $unit->id,
                     'brand_id' => $brand->id,
-                    'min_stock' => $row['min_stock'] ?? 0,      // Default min_stock jika tidak ada
+                    'min_stock' => $row['min_stock'] ?? 0,      // Default min_stock if not available
+                    'harga_jual' => $row['harga_jual'] ?? 0,    // Default harga_jual if not available
+                    'stock_awal' => $row['stock_awal'] ?? 0,      // Default stok_awal if not available
                 ]);
             }
         }

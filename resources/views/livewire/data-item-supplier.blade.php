@@ -54,7 +54,7 @@
                                                 <thead class="bg-gray-50 dark:bg-zinc-600">
                                                     <tr>
                                                         <th class="p-2 border">Barang</th>
-                                                        <th class="p-2 border">Harga Beli</th>
+                                                        <th class="p-2 border">Harga Supplier</th>
                                                         <th class="p-2 border">Utama</th>
                                                         <th class="p-2 border">Jumlah Minimum</th>
                                                         <th class="p-2 border">Waktu Tunggu</th>
@@ -198,7 +198,7 @@
                                 {{-- Harga beli --}}
                                 <div class="w-full md:col-span-2">
                                     <input type="number" wire:model.live="itemInputs.{{ $index }}.harga_beli"
-                                        class="w-full border rounded px-3 py-2" placeholder="Harga beli">
+                                        class="w-full border rounded px-3 py-2" placeholder="Harga Supplier">
                                 </div>
 
                                 {{-- Min Qty --}}

@@ -31,6 +31,7 @@ class StockNotification extends Component
             // Bandingkan dengan min_stock untuk memberi notifikasi jika stok lebih rendah atau sama dengan min_stock
             return $stokSekarang <= $item->min_stock;
         });
+
         // Hitung jumlah notifikasi yang belum dibaca
         $this->unreadCount = $this->lowStockItems->count();
     }
@@ -44,10 +45,10 @@ class StockNotification extends Component
         }
 
         // Ambil salah satu relasi ItemSupplier (karena untuk notifikasi stok, satu saja cukup)
-        $itemSupplier = ItemSupplier::where('item_id', $itemId)->first();
-        if (!$itemSupplier) {
-            return 0;
-        }
+        // $itemSupplier = ItemSupplier::where('item_id', $itemId)->first();
+        // if (!$itemSupplier) {
+        //     return 0;
+        // }
 
         // Hitung stok masuk
         $stokMasuk = StockTransactionItem::where('item_id', $itemId)
@@ -100,9 +101,10 @@ class StockNotification extends Component
         });
 
         // Faktor konversi jika diperlukan
-        $conversionFactor = $this->getConversionFactor($itemSupplier->item_id, $item->unit_id);
+        // $conversionFactor = $this->getConversionFactor($itemSupplier->item_id, $item->unit_id);
 
-        $stokSekarang = ($stokMasuk + $stokReturIn - $stokKeluar - $stokReturOut + $jumlahPenyesuaian) * $conversionFactor;
+        // Menggunakan stok_awal dari model Item untuk stok awal
+        $stokSekarang = ($item->stock_awal + $stokMasuk + $stokReturIn - $stokKeluar - $stokReturOut + $jumlahPenyesuaian);
 
         return round(max(0, $stokSekarang), 2);
     }

@@ -42,6 +42,8 @@
                         <th class="p-2 text-left">Merek</th>
                         <th class="p-2 text-left">Satuan</th>
                         <th class="p-2 text-left">Stock Minim</th>
+                        <th class="p-2 text-left">Harga Jual</th>
+                        <th class="p-2 text-left">Stock Awal</th>
                         <th class="p-2 text-left">Aksi</th>
                     </tr>
                 </thead>
@@ -62,6 +64,8 @@
                             <td class="p-2">{{ $item->brand->name ?? '-' }}</td>
                             <td class="p-2">{{ $item->unit->symbol ?? '-' }}</td>
                             <td class="p-2">{{ $item->min_stock ?? '-' }}</td>
+                            <td class="p-2">{{ 'Rp ' . number_format($item->harga_jual, 0, ',', '.') ?? '-' }}</td>
+                            <td class="p-2">{{ $item->stock_awal ?? '-' }}</td>
                             <td class="p-2 space-x-2">
                                 <button wire:click="edit({{ $item->id }})"
                                     class="text-yellow-600 hover:text-white hover:bg-yellow-600 p-1 rounded transition"
@@ -155,6 +159,26 @@
                     <input type="number" wire:model.live="min_stock"
                         class="w-full border rounded px-3 py-2 dark:bg-zinc-800 dark:text-white">
                     @error('min_stock')
+                        <small class="text-red-500">{{ $message }}</small>
+                    @enderror
+                </div>
+
+                {{-- Harga Jual --}}
+                <div class="mb-4">
+                    <label class="block mb-1">Harga Jual</label>
+                    <input type="number" wire:model.live="harga_jual" step="0.01"
+                        class="w-full border rounded px-3 py-2 dark:bg-zinc-800 dark:text-white">
+                    @error('harga_jual')
+                        <small class="text-red-500">{{ $message }}</small>
+                    @enderror
+                </div>
+
+                {{-- Stok Awal --}}
+                <div class="mb-4">
+                    <label class="block mb-1">Stok Awal</label>
+                    <input type="number" wire:model.live="stock_awal"
+                        class="w-full border rounded px-3 py-2 dark:bg-zinc-800 dark:text-white">
+                    @error('stok_awal')
                         <small class="text-red-500">{{ $message }}</small>
                     @enderror
                 </div>

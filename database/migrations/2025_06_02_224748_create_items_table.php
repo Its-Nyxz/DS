@@ -19,6 +19,8 @@ return new class extends Migration
             $table->foreignId('brand_id')->nullable()->constrained('brands')->nullOnDelete();
             $table->string('img')->nullable();
             $table->integer('min_stock')->default(0);
+            $table->decimal('harga_jual', 10, 2)->nullable();  // Added selling price (harga_jual)
+            $table->integer('stock_awal')->default(0); // Added initial stock (stok_awal)
             $table->timestamps();
         });
     }
