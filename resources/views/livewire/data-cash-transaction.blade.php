@@ -127,11 +127,27 @@
                             <td class="px-4 py-2">{{ $tx->note ?? '-' }}</td>
                             <td class="px-4 py-2 text-center flex justify-center gap-2 items-center">
                                 @if ($tx->transaction_type === 'stock' && !$tx->stockTransaction?->is_fully_paid)
-                                    <button wire:click="openPaymentModal({{ $tx->stock_transaction_id }})"
-                                        class="text-blue-600 bg-blue-100 hover:bg-blue-200 px-2 py-1 text-xs rounded">
-                                        Bayar
-                                    </button>
+                                    @php
+                                        $isApproved = $tx->stockTransaction?->is_approved;
+                                        $type = $tx->stockTransaction?->type;
+                                    @endphp
+
+                                    {{-- Jika type=in dan belum disetujui, tombol bayar disable --}}
+                                    @if ($type === 'in' && !$isApproved)
+                                        <button disabled
+                                            class="text-gray-400 bg-gray-100 px-2 py-1 text-xs rounded cursor-not-allowed"
+                                            title="Menunggu persetujuan">
+                                            Bayar
+                                        </button>
+                                    @else
+                                        {{-- Semua kondisi lainnya, tetap bisa bayar --}}
+                                        <button wire:click="openPaymentModal({{ $tx->stock_transaction_id }})"
+                                            class="text-blue-600 bg-blue-100 hover:bg-blue-200 px-2 py-1 text-xs rounded">
+                                            Bayar
+                                        </button>
+                                    @endif
                                 @endif
+
 
                                 {{-- Status Lunas / Hutang --}}
                                 @if ($tx->transaction_type === 'stock' && $tx->stockTransaction?->is_fully_paid)
@@ -145,12 +161,12 @@
                                         class="text-gray-600 text-xs font-semibold bg-gray-100 px-2 py-1 rounded">-</span>
                                 @endif
 
-                                {{-- Tombol Edit --}}
                                 {{-- @can('edit-transaksi-kas') --}}
-                                <button wire:click="edit({{ $tx->id }})"
-                                    class="text-yellow-600 hover:text-white hover:bg-yellow-600 p-1 rounded"
-                                    title="Edit">
-                                    <i class="fas fa-eye"></i>
+                                {{-- Tombol Detail --}}
+                                <button wire:click="showDetail({{ $tx->id }})"
+                                    class="text-indigo-600 hover:text-white hover:bg-indigo-600 p-1 rounded"
+                                    title="Detail">
+                                    <i class="fas fa-info-circle"></i>
                                 </button>
                                 {{-- @endcan --}}
 
@@ -185,15 +201,15 @@
             <div x-show="open" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-40"></div>
 
             <div x-show="open"
-                class="fixed top-1/2 left-1/2 w-full max-w-lg transform -translate-x-1/2 -translate-y-1/2 z-50
-        bg-white dark:bg-zinc-800 rounded p-6 shadow-lg overflow-y-auto max-h-[90vh]">
+                class="fixed top-1/2 left-1/2 w-full max-w-2xl transform -translate-x-1/2 -translate-y-1/2 z-50
+    bg-white dark:bg-zinc-800 rounded p-6 shadow-lg overflow-y-auto max-h-[90vh]">
 
                 <h2 class="text-xl font-bold mb-4 text-zinc-800 dark:text-white">Pembayaran Utang/Piutang</h2>
 
                 {{-- Tanggal --}}
                 <div class="mb-4">
                     <label class="block text-sm mb-1 dark:text-white">Tanggal Pembayaran</label>
-                    <input type="date" wire:model.live="paymentDate"
+                    <input type="datetime-local" wire:model.live="paymentDate"
                         class="w-full border rounded p-2 bg-white dark:bg-zinc-800 dark:text-white" />
                     @error('paymentDate')
                         <div class="text-sm text-red-600 mt-1">{{ $message }}</div>
@@ -224,7 +240,7 @@
 
                 {{-- Jumlah Pembayaran --}}
                 <div class="mb-4">
-                    <label class="block text-sm mb-1 dark:text-white">Jumlah</label>
+                    <label class="block text-sm mb-1 dark:text-white">Jumlah (Rp)</label>
                     <input type="number" wire:model.live="paymentAmount"
                         class="w-full border rounded p-2 bg-white dark:bg-zinc-800 dark:text-white" />
                     @error('paymentAmount')
@@ -270,6 +286,115 @@
                 </div>
             </div>
         </div>
+
+        {{-- Modal Detail Transaksi --}}
+        <div x-data="{ open: @entangle('showDetailModal') }">
+            <div x-show="open" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-40"></div>
+
+            <div x-show="open"
+                class="fixed top-1/2 left-1/2 w-full max-w-xl transform -translate-x-1/2 -translate-y-1/2 z-50
+        bg-white dark:bg-zinc-800 rounded p-6 shadow-lg overflow-y-auto max-h-[90vh]">
+
+                <h2 class="text-lg font-semibold mb-4 text-zinc-800 dark:text-white">
+                    Detail Transaksi Kas
+                </h2>
+
+                @if ($selectedTransaction && $selectedTransaction->stockTransaction)
+                    @php
+                        $stock = $selectedTransaction->stockTransaction;
+                        $tagihan = $stock->total_amount ?? 0;
+                        $dibayar = $stock->cashTransactions->sum('amount');
+                        $sisa = $tagihan - $dibayar;
+
+                        $payments = $stock->cashTransactions
+                            ->where('transaction_type', 'payment')
+                            ->sortBy('transaction_date');
+                    @endphp
+
+                    {{-- Info Utama --}}
+                    <div class="space-y-2 text-sm dark:text-white mb-6">
+                        <div class="flex justify-between">
+                            <span><strong>Tanggal Transaksi:</strong></span>
+                            <span>{{ \Carbon\Carbon::parse($selectedTransaction->transaction_date)->format('d/m/Y') }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span><strong>Referensi:</strong></span>
+                            <span>{{ $selectedTransaction->reference_number }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span><strong>Jenis Transaksi:</strong></span>
+                            <span>{{ ucfirst($selectedTransaction->transaction_type) }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span><strong>Metode Pembayaran:</strong></span>
+                            <span>{{ ucfirst($selectedTransaction->payment_method === 'term' ? 'Cicilan' : $selectedTransaction->payment_method) }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span><strong>Keterangan:</strong></span>
+                            <span>{{ $selectedTransaction->note ?? '-' }}</span>
+                        </div>
+                    </div>
+
+                    {{-- Rekap Pembayaran --}}
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6 text-sm dark:text-white">
+                        <div>
+                            <span class="block text-gray-500 dark:text-zinc-300">Total Tagihan</span>
+                            <span class="text-red-600 font-semibold">Rp
+                                {{ number_format($tagihan, 0, ',', '.') }}</span>
+                        </div>
+                        <div>
+                            <span class="block text-gray-500 dark:text-zinc-300">Sudah Dibayar</span>
+                            <span class="text-green-600 font-semibold">Rp
+                                {{ number_format($dibayar, 0, ',', '.') }}</span>
+                        </div>
+                        <div>
+                            <span class="block text-gray-500 dark:text-zinc-300">Sisa</span>
+                            <span class="text-yellow-600 font-semibold">Rp
+                                {{ number_format($sisa, 0, ',', '.') }}</span>
+                        </div>
+                    </div>
+
+                    {{-- Tabel Riwayat Pembayaran --}}
+                    @if ($payments->count())
+                        <div>
+                            <h3 class="text-sm font-semibold mb-2 dark:text-white">Riwayat Pembayaran:</h3>
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full text-sm bg-white dark:bg-zinc-700 rounded shadow">
+                                    <thead class="bg-gray-100 dark:bg-zinc-600 dark:text-white">
+                                        <tr>
+                                            <th class="px-4 py-2 text-left">Nomor Refrensi</th>
+                                            <th class="px-4 py-2 text-left">Tanggal</th>
+                                            <th class="px-4 py-2 text-right">Jumlah</th>
+                                            <th class="px-4 py-2">Catatan</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach ($payments as $tx)
+                                            <tr class="border-t dark:border-zinc-600">
+                                                <td class="px-4 py-2">{{ $tx->reference_number ?? '-' }}</td>
+                                                <td class="px-4 py-2">
+                                                    {{ \Carbon\Carbon::parse($tx->transaction_date)->format('d/m/Y') }}
+                                                </td>
+                                                <td class="px-4 py-2 text-right text-green-600">
+                                                    Rp {{ number_format($tx->amount, 0, ',', '.') }}
+                                                </td>
+                                                <td class="px-4 py-2">{{ $tx->note ?? '-' }}</td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    @endif
+                @endif
+
+                {{-- Tombol --}}
+                <div class="mt-6 flex justify-end space-x-2">
+                    <button @click="open = false" class="px-4 py-2 bg-gray-300 rounded">Tutup</button>
+                </div>
+            </div>
+        </div>
+
 
     </x-card>
 </div>

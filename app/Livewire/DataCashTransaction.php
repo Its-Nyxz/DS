@@ -4,9 +4,11 @@ namespace App\Livewire;
 
 use Carbon\Carbon;
 use Livewire\Component;
+use Illuminate\Support\Str;
 use Livewire\WithPagination;
 use App\Models\CashTransaction;
 use App\Models\StockTransaction;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 class DataCashTransaction extends Component
 {
@@ -30,18 +32,22 @@ class DataCashTransaction extends Component
     public $paymentPaid = 0;
     public $paymentRemaining = 0;
     public $perPage = 10;
+    public $showDetailModal = false;
+    public $selectedTransaction;
+
 
     public function mount($type)
     {
         $this->type = $type;
+        // Set default date filter to today
+        $this->startDate = Carbon::today()->format('Y-m-d');
+        $this->endDate = Carbon::today()->format('Y-m-d');
     }
 
     public function updatingSearch()
     {
         $this->resetPage(); // reset halaman saat search berubah
     }
-
-
 
     public function openPaymentModal($stockTransactionId)
     {
@@ -50,7 +56,7 @@ class DataCashTransaction extends Component
         $this->paymentStockTransactionId = $stockTransactionId;
         $this->paymentAmount = '';
         $this->paymentNote = '';
-        $this->paymentDate = now()->format('Y-m-d');
+        $this->paymentDate = now()->format('Y-m-d\TH:i');
 
         $stock = StockTransaction::with('cashTransactions')->findOrFail($stockTransactionId);
 
@@ -72,47 +78,88 @@ class DataCashTransaction extends Component
     {
         $this->validate([
             'paymentAmount' => 'required|numeric|min:1',
-            'paymentDate' => 'required|date',
+            'paymentDate' => 'required|date_format:Y-m-d\TH:i',
         ]);
 
         $stock = StockTransaction::with('cashTransactions')->findOrFail($this->paymentStockTransactionId);
 
-        $totalPaid = $stock->cashTransactions()->sum('amount');
-        $remaining = $stock->total - $totalPaid;
+        $total = $stock->total_amount;
+
+        // Hitung total sudah dibayar dari transaksi payment saja (bukan termasuk transaksi stock)
+        $totalPaid = $stock->cashTransactions()
+            ->where('transaction_type', 'payment')
+            ->sum('amount');
+
+        $remaining = $total - $totalPaid;
 
         if ($this->paymentAmount > $remaining) {
             $this->addError('paymentAmount', 'Jumlah melebihi sisa pembayaran.');
             return;
         }
 
+        $expectedTotalPaid = $totalPaid + $this->paymentAmount;
+        $isFullyPaid = $expectedTotalPaid >= $total;
+
+        $shortCode = $stock->transaction_code
+            ? 'TX' . substr($stock->transaction_code, -6)
+            : 'STK' . $stock->id;
+
+        $referenceNumber = $shortCode . '-PAY-' . now()->format('ymd') . '-' . strtoupper(Str::random(4));
+
+        // Simpan transaksi pembayaran
         CashTransaction::create([
             'transaction_type' => 'payment',
             'stock_transaction_id' => $stock->id,
             'amount' => $this->paymentAmount,
-            'transaction_date' => $this->paymentDate,
-            'payment_method' => 'cash',
+            'transaction_date' => Carbon::parse($this->paymentDate),
+            'reference_number' => $referenceNumber,
+            'payment_method' => $isFullyPaid ? 'cash' : 'term',
             'debt_credit' => $this->type,
             'note' => $this->paymentNote,
         ]);
 
-        $newTotalPaid = $stock->cashTransactions()->sum('amount');
-        $stock->is_fully_paid = $newTotalPaid >= $stock->total;
+        // Update status pelunasan di stock_transaction
+        $stock->is_fully_paid = $isFullyPaid;
+        $stock->fully_paid_at = $isFullyPaid ? now() : null;
         $stock->save();
 
+        // Update transaksi kas awal (stock) jika sudah lunas
+        $initial = $stock->cashTransactions()
+            ->where('transaction_type', 'stock')
+            ->first();
+
+        if ($initial) {
+            $initial->note = $isFullyPaid
+                ? ($stock->type === 'in' ? 'Pembelian' : 'Penjualan') . ' sudah Lunas'
+                : 'Cicilan ' . ($stock->type === 'in' ? 'Pembelian' : 'Penjualan');
+            $initial->save();
+        }
+
         $this->paymentModal = false;
-        $this->dispatch('alert-success', ['message' => 'Pembarayan Berhasil.']);
+        $this->dispatch('alert-success', ['message' => 'Pembayaran berhasil.']);
+    }
+
+    public function showDetail($id)
+    {
+        $this->resetValidation();
+        $this->selectedTransaction = CashTransaction::with('stockTransaction')->findOrFail($id);
+        $this->showDetailModal = true;
     }
 
     public function render()
     {
-        $query = CashTransaction::with(['stockTransaction.cashTransactions']);
+        $query = CashTransaction::with(['stockTransaction.cashTransactions'])
+            ->where('transaction_type', 'stock') // hanya ambil transaksi kas awal (stock)
+            ->whereNotNull('stock_transaction_id');
 
+        // Filter jenis utang/piutang
         if ($this->type === 'utang') {
             $query->where('debt_credit', 'utang');
         } elseif ($this->type === 'piutang') {
             $query->where('debt_credit', 'piutang');
         }
 
+        // Filter pencarian
         if (!empty($this->search)) {
             $query->where(function ($q) {
                 $q->where('note', 'like', "%{$this->search}%")
@@ -121,6 +168,7 @@ class DataCashTransaction extends Component
             });
         }
 
+        // Filter tanggal
         if ($this->startDate) {
             $query->whereDate('transaction_date', '>=', Carbon::parse($this->startDate));
         }
@@ -129,16 +177,19 @@ class DataCashTransaction extends Component
             $query->whereDate('transaction_date', '<=', Carbon::parse($this->endDate));
         }
 
+        // Filter status pembayaran
         if ($this->paymentStatus === 'paid') {
-            $query->whereHas('stockTransaction', function ($q) {
-                $q->where('is_fully_paid', true);
-            });
+            $query->whereHas('stockTransaction', fn($q) => $q->where('is_fully_paid', true));
         } elseif ($this->paymentStatus === 'unpaid') {
-            $query->whereHas('stockTransaction', function ($q) {
-                $q->where('is_fully_paid', false);
-            });
+            $query->whereHas('stockTransaction', fn($q) => $q->where('is_fully_paid', false));
         }
 
+        // Hanya tampilkan transaksi kas stock yang memiliki pembayaran (payment) terkait
+        // $query->whereHas('stockTransaction.cashTransactions', function ($q) {
+        //     $q->where('transaction_type', 'payment');
+        // });
+
+        // Ambil hasil
         $transactions = $query
             ->orderBy($this->orderBy, $this->orderDirection)
             ->paginate($this->perPage);

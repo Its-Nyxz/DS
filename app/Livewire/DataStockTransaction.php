@@ -523,7 +523,7 @@ class DataStockTransaction extends Component
                     }
                     $systemStock = $item['system_stock'];
                     if ($item['quantity'] > $systemStock) {
-                        $this->addError("items.$i.quantity", 'Stok tidak mencukupi. Tersedia: '. $systemStock);
+                        $this->addError("items.$i.quantity", 'Stok tidak mencukupi. Tersedia: ' . $systemStock);
                         return; // Hentikan eksekusi jika stok tidak mencukupi
                     }
 
@@ -699,6 +699,14 @@ class DataStockTransaction extends Component
             $existingCashTransaction->delete();
         }
 
+
+        $shortCode = $stockTransaction->transaction_code
+            ? 'TX' . substr($stockTransaction->transaction_code, -6)
+            : 'STK' . $stockTransaction->id;
+
+        $prefix = $this->payment_type === 'cash' ? 'CASH' : 'TERM';
+        $referenceNumber = "{$shortCode}-{$prefix}-" . now()->format('ymd') . '-' . strtoupper(Str::random(4));
+
         if ($this->payment_type === 'cash') {
             // Pembayaran tunai (cash)
             CashTransaction::create([
@@ -707,7 +715,7 @@ class DataStockTransaction extends Component
                 'amount' => $this->total,
                 'transaction_date' => $stockTransaction->transaction_date,
                 'payment_method' => 'cash',
-                'reference_number' => 'CASH-' . now()->format('YmdHis'),
+                'reference_number' => $referenceNumber,
                 'note' => $stockTransaction->type === 'in' ? 'Pembelian' : 'Penjualan' . ' | Lunas',
                 'debt_credit' => null, // Tidak ada utang/piutang
             ]);
@@ -726,7 +734,7 @@ class DataStockTransaction extends Component
                 'amount' => 0, // Belum ada pembayaran, cicilan akan dibayar di lain waktu
                 'transaction_date' => now(),
                 'payment_method' => 'term',
-                'reference_number' => 'TERM-' . now()->format('YmdHis'),
+                'reference_number' => $referenceNumber,
                 'note' => $stockTransaction->type === 'in' ? 'Cicilan Pembelian' : 'Cicilan Penjualan',
                 'debt_credit' => $stockTransaction->type === 'in' ? 'utang' : 'piutang', // Tentukan apakah ini utang atau piutang
             ]);
