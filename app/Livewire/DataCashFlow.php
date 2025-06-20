@@ -16,6 +16,15 @@ class DataCashFlow extends Component
     public $endDate;
     public $showDetailModal = false;
     public $selectedTransaction;
+    public $showFormModal = false;
+    public $form = [
+        'id' => null,
+        'transaction_type' => '',
+        'transaction_date' => '',
+        'amount' => '',
+        'payment_method' => '',
+        'note' => '',
+    ];
     public $transactionDetail = [];
     public $perPage = 20;
 
@@ -29,6 +38,76 @@ class DataCashFlow extends Component
     public function updatingSearch()
     {
         $this->resetPage();
+    }
+
+    public function openForm($id = null)
+    {
+        if ($id) {
+            $tx = CashTransaction::findOrFail($id);
+
+            $this->form = [
+                'id' => $tx->id,
+                'transaction_type' => $tx->transaction_type,
+                'transaction_date' => Carbon::parse($tx->transaction_date)->format('Y-m-d\TH:i'),
+                'amount' => $tx->amount,
+                'payment_method' => $tx->payment_method,
+                'note' => $tx->note,
+            ];
+        } else {
+            $this->reset('form');
+            $this->form['transaction_date'] = Carbon::now()->format('Y-m-d\TH:i'); // gunakan jam sekarang
+            $this->form['payment_method'] = 'cash';
+        }
+
+        $this->showFormModal = true;
+    }
+
+    public function save()
+    {
+        $this->validate([
+            'form.transaction_type' => 'required|string|in:stock,expense,payment,income,transfer_in,adjustment_in,refund_in',
+            'form.transaction_date' => 'required|date_format:Y-m-d\TH:i',
+            'form.amount' => 'required|numeric|min:0',
+            'form.payment_method' => 'required|string|max:255',
+            'form.note' => 'nullable|string',
+        ]);
+
+        $typeCode = [
+            'income' => 'INC',
+            'expense' => 'EXP',
+            'payment' => 'PAY',
+            'stock' => 'STK',
+            'transfer_in' => 'TRF',
+            'adjustment_in' => 'ADJ',
+            'refund_in' => 'RFD',
+        ];
+
+        $methodCode = [
+            'cash' => 'CSH',
+            'transfer' => 'TRF',
+            'qris' => 'QRS',
+        ];
+
+        $reference = $this->form['id']
+            ? CashTransaction::find($this->form['id'])?->reference_number
+            : ($typeCode[$this->form['transaction_type']] ?? 'REF') . '-' .
+            ($methodCode[$this->form['payment_method']] ?? 'OTH') . '-' .
+            now()->format('YmdHis');
+
+        CashTransaction::updateOrCreate(
+            ['id' => $this->form['id']],
+            [
+                'transaction_type' => $this->form['transaction_type'],
+                'transaction_date' => Carbon::createFromFormat('Y-m-d\TH:i', $this->form['transaction_date']),
+                'amount' => $this->form['amount'],
+                'payment_method' => $this->form['payment_method'],
+                'note' => $this->form['note'],
+                'reference_number' => $reference,
+            ]
+        );
+
+        $this->showFormModal = false;
+        $this->dispatch('alert-success', ['message' => 'Berhasil Menyimpan.']);
     }
 
     public function showCashDetail($id)
@@ -90,25 +169,57 @@ class DataCashFlow extends Component
         // Ambil data
         $transactions = $query->orderBy('transaction_date', 'asc')->get();
 
-        // Format data debit/kredit
-        $saldo = 0;
-        $formatted = $transactions->map(function ($tx) use (&$saldo) {
-            $debit = in_array($tx->debt_credit, ['piutang']) ? $tx->amount : 0;
-            $kredit = in_array($tx->debt_credit, ['utang']) ? $tx->amount : 0;
+        // 🔁 Gunakan fungsi untuk menentukan nilai debit/kredit
+        $getDebit = function ($tx) {
+            return (
+                in_array($tx->transaction_type, ['income', 'transfer_in']) ||
+                ($tx->transaction_type === 'stock' && $tx->payment_method === 'cash' && $tx->debt_credit === 'piutang') ||
+                ($tx->transaction_type === 'payment' && $tx->debt_credit === 'piutang')
+            ) ? $tx->amount : 0;
+        };
 
-            // Hitung saldo berjalan
-            $saldo += $debit - $kredit;
+        $getKredit = function ($tx) {
+            return (
+                $tx->transaction_type === 'expense' ||
+                ($tx->transaction_type === 'stock' && $tx->payment_method === 'cash' && $tx->debt_credit === 'utang') ||
+                ($tx->transaction_type === 'payment' && $tx->debt_credit === 'utang')
+            ) ? $tx->amount : 0;
+        };
 
-            return [
-                'id' => $tx->id,
-                'tanggal' => Carbon::parse($tx->transaction_date)->format('d/m/Y'),
-                'keterangan' => trim("{$tx->reference_number} - {$tx->note}") ?: '-',
-                'debit' => $debit,
-                'kredit' => $kredit,
-                'transaction_code' => $tx->stockTransaction?->transaction_code ?? '',
-                'saldo' => $saldo,
-            ];
-        });
+        // 💰 Saldo awal sebelum filter tanggal
+        $saldoAwal = CashTransaction::whereDate('transaction_date', '<', Carbon::parse($this->startDate))
+            ->get()
+            ->reduce(fn($carry, $tx) => $carry + ($getDebit($tx) - $getKredit($tx)), 0);
+
+        $saldo = $saldoAwal;
+        $formatted = collect([
+            [
+                'tanggal' => 'Saldo Awal',
+                'keterangan' => '',
+                'debit' => 0,
+                'kredit' => 0,
+                'saldo' => $saldoAwal,
+            ]
+        ]);
+
+        $formatted = $formatted->merge(
+            $transactions->map(function ($tx) use (&$saldo, $getDebit, $getKredit) {
+                $debit = $getDebit($tx);
+                $kredit = $getKredit($tx);
+
+                $saldo += $debit - $kredit;
+
+                return [
+                    'id' => $tx->id,
+                    'tanggal' => Carbon::parse($tx->transaction_date)->format('d/m/Y H:i'),
+                    'reference_number' => $tx->reference_number ?? '-',
+                    'keterangan' => trim("{$tx->stockTransaction?->transaction_code} {$tx->note}") ?: '-',
+                    'debit' => $debit,
+                    'kredit' => $kredit,
+                    'saldo' => $saldo,
+                ];
+            })
+        );
 
         // Hitung total
         $totalDebit = $formatted->sum('debit');

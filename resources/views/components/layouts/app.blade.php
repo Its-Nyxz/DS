@@ -28,6 +28,25 @@
                 } = event.detail[0];
                 warningAlert(message, title);
             });
+
+            document.addEventListener('alpine:init', () => {
+                Alpine.data('rupiahInput', (model) => ({
+                    rawValue: '',
+
+                    init() {
+                        this.$watch('rawValue', (val) => {
+                            const clean = val.replace(/\D/g, '');
+                            this.rawValue = new Intl.NumberFormat('id-ID').format(clean);
+                            this.$dispatch('input', {
+                                detail: clean
+                            }); // trigger Livewire
+                            this.$el.dispatchEvent(new CustomEvent('input', {
+                                bubbles: true
+                            }));
+                        });
+                    }
+                }));
+            });
         </script>
     @endpush
     @stack('scripts')

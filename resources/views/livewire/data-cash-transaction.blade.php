@@ -23,7 +23,6 @@
                 <select wire:model.live="orderBy"
                     class="border rounded p-2 dark:bg-zinc-800 dark:text-white dark:border-zinc-600">
                     <option value="transaction_date">Tanggal</option>
-                    <option value="transaction_type">Jenis</option>
                     <option value="amount">Jumlah</option>
                 </select>
 
@@ -81,7 +80,7 @@
                     @forelse ($transactions as $tx)
                         <tr class="border-b dark:border-zinc-700">
                             <td class="px-4 py-2">
-                                {{ \Carbon\Carbon::parse($tx->transaction_date)->format('d/m/Y') }}
+                                {{ \Carbon\Carbon::parse($tx->transaction_date)->format('d/m/Y H:i') }}
                             </td>
                             <td class="px-4 py-2">{{ $tx->reference_number ?? '-' }}</td>
                             <td class="px-4 py-2">{{ ucfirst($tx->transaction_type) }}</td>
@@ -239,10 +238,20 @@
                 </div>
 
                 {{-- Jumlah Pembayaran --}}
-                <div class="mb-4">
+                <div x-data="{
+                    amountFormatted: '',
+                    update(value) {
+                        value = value.replace(/\D/g, '');
+                        this.amountFormatted = new Intl.NumberFormat('id-ID').format(value);
+                        $wire.paymentAmount = value;
+                    }
+                }" x-init="update('{{ old('paymentAmount', $paymentAmount ?? '') }}')">
                     <label class="block text-sm mb-1 dark:text-white">Jumlah (Rp)</label>
-                    <input type="number" wire:model.live="paymentAmount"
-                        class="w-full border rounded p-2 bg-white dark:bg-zinc-800 dark:text-white" />
+
+                    <input type="text" x-model="amountFormatted" @input="update($event.target.value)"
+                        class="w-full border rounded p-2 bg-white dark:bg-zinc-800 dark:text-white"
+                        placeholder="Contoh: 1.000.000">
+
                     @error('paymentAmount')
                         <div class="text-sm text-red-600 mt-1">{{ $message }}</div>
                     @enderror

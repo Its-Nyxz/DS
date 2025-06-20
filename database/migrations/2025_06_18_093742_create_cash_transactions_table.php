@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('cash_transactions', function (Blueprint $table) {
             $table->id();
-            $table->enum('transaction_type', ['stock', 'expense', 'payment']); // Jenis transaksi: stok, pengeluaran, atau pembayaran
+            $table->enum('transaction_type', ['stock', 'expense', 'payment', 'income', 'transfer_in', 'adjustment_in', 'refund_in']);
             $table->foreignId('stock_transaction_id')->nullable()->constrained('stock_transactions')->onDelete('cascade'); // ID transaksi stok terkait, nullable jika bukan transaksi stok
             $table->decimal('amount', 12, 2); // Jumlah uang yang terlibat dalam transaksi kas
             $table->date('transaction_date'); // Tanggal transaksi

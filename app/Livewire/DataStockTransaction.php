@@ -706,6 +706,7 @@ class DataStockTransaction extends Component
 
         $prefix = $this->payment_type === 'cash' ? 'CASH' : 'TERM';
         $referenceNumber = "{$shortCode}-{$prefix}-" . now()->format('ymd') . '-' . strtoupper(Str::random(4));
+        $debtCredit = $stockTransaction->type === 'in' ? 'utang' : 'piutang';
 
         if ($this->payment_type === 'cash') {
             // Pembayaran tunai (cash)
@@ -717,7 +718,7 @@ class DataStockTransaction extends Component
                 'payment_method' => 'cash',
                 'reference_number' => $referenceNumber,
                 'note' => $stockTransaction->type === 'in' ? 'Pembelian' : 'Penjualan' . ' | Lunas',
-                'debt_credit' => null, // Tidak ada utang/piutang
+                'debt_credit' =>  $debtCredit, // Tidak ada utang/piutang
             ]);
 
             // Update status pembayaran pada transaksi stok menjadi lunas
