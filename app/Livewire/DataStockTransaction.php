@@ -606,7 +606,7 @@ class DataStockTransaction extends Component
             }
 
             // Simpan transaksi kas hanya untuk tipe 'in' dan 'out'
-            if ($actualType === 'in' || $actualType === 'out') {
+            if ($actualType === 'out') {
                 $this->saveCashTransaction($tx);
             }
 
@@ -1141,6 +1141,13 @@ class DataStockTransaction extends Component
             'approved_by' => auth()->id(),
             'approved_at' => now(),
         ]);
+
+        // Simpan cash transaction hanya untuk transaksi 'in'
+        if ($tx->type === 'in') {
+            $this->payment_type = $tx->payment_type; // set payment_type dari database
+            $this->total = $tx->items->sum('subtotal'); // pastikan total diambil dari tx
+            $this->saveCashTransaction($tx);
+        }
 
         // Notifikasi ke pembuat
         $creator = User::find($tx->created_by);
