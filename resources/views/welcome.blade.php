@@ -75,7 +75,7 @@
             @endif
         </header>
         <div class="flex items-center justify-center w-full transition-opacity opacity-100 duration-750 lg:grow starting:opacity-0">
-           <main class="flex flex-col-reverse w-full max-w-full sm:max-w-md md:max-w-2xl lg:max-w-4xl xl:max-w-6xl lg:flex-row">
+            <main class="flex max-w-sm w-full flex-col-reverse lg:max-w-4xl lg:flex-row">
                                 <!-- Company Information Section -->
                 <div class="text-[13px] leading-[20px] flex-1 p-6 pb-12 lg:p-20 bg-white dark:text-[#0c0c0c] shadow-[inset_0px_0px_0px_1px_rgba(26,26,0,0.16)] dark:shadow-[inset_0px_0px_0px_1px_#fffaed2d] rounded-es-lg rounded-ee-lg lg:rounded-ss-lg lg:rounded-ee-none">
                     <div class="text-center">
@@ -124,7 +124,7 @@
                             $latitude = $company->latitude ?? -6.200000;
                             $longitude = $company->longitude ?? 106.816666;
                         @endphp
-                        <div style="width: 100%; max-width: 25rem; margin: 1rem auto;">
+                        <div style="width: 100%; max-width: 20rem; margin: 1rem auto;">
                             <div id="company-map" style="width: 100%; height: 10rem; border-radius: 0.5rem; overflow: hidden;"></div>
                         </div>
                       </div>
