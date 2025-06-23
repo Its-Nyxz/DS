@@ -41,7 +41,7 @@ class DataCompany extends Component
         $this->slogan       = $this->company->slogan;
         $this->description  = $this->company->description;
         $this->promo        = $this->company->promo;
-        $this->link         = $this->company->link;
+        $this->link         = $this->company->address_link;
     }
     public function updatedLogo()
     {
