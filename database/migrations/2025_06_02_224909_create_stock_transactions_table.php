@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('supplier_id')->nullable()->constrained('suppliers');
             $table->foreignId('customer_id')->nullable()->constrained()->onDelete('set null');
+            $table->foreignId('related_transaction_id')->nullable()->constrained('stock_transactions')->onDelete('set null');
             $table->string('transaction_code')->unique();
             $table->dateTime('transaction_date')->nullable();
             $table->enum('type', ['in', 'out', 'adjustment', 'retur_in', 'retur_out']);

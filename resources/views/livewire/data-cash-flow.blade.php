@@ -1,4 +1,4 @@
-<x-card title="Arus Kas ">
+<x-card title="Arus Kas">
     {{-- Filter & Export --}}
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
         <div class="flex flex-wrap gap-2 w-full md:w-auto">
@@ -26,7 +26,7 @@
     </div>
 
     {{-- Table --}}
-    <div class="overflow-x-auto">
+    <div class="overflow-x-auto max-h-[35rem] overflow-y-auto">
         <table class="min-w-full bg-white dark:bg-zinc-800 text-sm">
             <thead class="bg-gray-100 dark:bg-zinc-700 text-gray-700 dark:text-gray-300">
                 <tr>
@@ -101,7 +101,8 @@
             <div class="space-y-3 text-sm">
                 <div>
                     <label class="block mb-1">Jenis Transaksi</label>
-                    <select wire:model.live="form.transaction_type" class="w-full border px-3 py-2 rounded">
+                    <select wire:model.live="form.transaction_type"
+                        class="w-full border border-zinc-300 dark:border-zinc-600 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 px-3 py-2 rounded">
                         <option value="">-- Pilih --</option>
                         {{-- <option value="stock">Stok</option> --}}
                         <option value="expense">Pengeluaran</option>
@@ -145,7 +146,8 @@
 
                 <div>
                     <label class="block mb-1">Metode</label>
-                    <select wire:model.live="form.payment_method" class="w-full border px-3 py-2 rounded">
+                    <select wire:model.live="form.payment_method"
+                        class="w-full border border-zinc-300 dark:border-zinc-600 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 px-3 py-2 rounded">
                         <option value="">-- Pilih --</option>
                         <option value="cash">Tunai</option>
                         <option value="transfer">Transfer</option>

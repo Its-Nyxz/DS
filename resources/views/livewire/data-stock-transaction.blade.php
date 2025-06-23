@@ -195,8 +195,9 @@
                                         @endif
                                     </div>
                                 @endif
-                                @can('termin-transaksi')
-                                    {{-- @if ($tx->is_fully_paid)
+                                @if (in_array($type, ['in', 'out']))
+                                    @can('termin-transaksi')
+                                        {{-- @if ($tx->is_fully_paid)
                                             <button wire:click="openPaymentDetailModal({{ $tx->id }})"
                                                 class="text-blue-600 text-xs font-semibold bg-blue-100 hover:bg-blue-200 px-2 py-1 rounded transition"
                                                 title="Lihat detail pembayaran">
@@ -209,26 +210,28 @@
                                                 Hutang
                                             </button>
                                         @endif --}}
-                                    @if ($tx->is_fully_paid)
-                                        <span class="text-blue-600 text-xs font-semibold bg-blue-100 px-2 py-1 rounded">
-                                            Lunas
-                                        </span>
+
+                                        @if ($tx->is_fully_paid)
+                                            <span class="text-blue-600 text-xs font-semibold bg-blue-100 px-2 py-1 rounded">
+                                                Lunas
+                                            </span>
+                                        @else
+                                            <span class="text-red-600 text-xs font-semibold bg-red-100 px-2 py-1 rounded">
+                                                Hutang
+                                            </span>
+                                        @endif
                                     @else
-                                        <span class="text-red-600 text-xs font-semibold bg-red-100 px-2 py-1 rounded">
-                                            Hutang
-                                        </span>
-                                    @endif
-                                @else
-                                    @if ($tx->is_fully_paid)
-                                        <span class="text-blue-600 text-xs font-semibold bg-blue-100 px-2 py-1 rounded">
-                                            Lunas
-                                        </span>
-                                    @else
-                                        <span class="text-red-600 text-xs font-semibold bg-red-100 px-2 py-1 rounded">
-                                            Hutang
-                                        </span>
-                                    @endif
-                                @endcan
+                                        @if ($tx->is_fully_paid)
+                                            <span class="text-blue-600 text-xs font-semibold bg-blue-100 px-2 py-1 rounded">
+                                                Lunas
+                                            </span>
+                                        @else
+                                            <span class="text-red-600 text-xs font-semibold bg-red-100 px-2 py-1 rounded">
+                                                Hutang
+                                            </span>
+                                        @endif
+                                    @endcan
+                                @endif
 
                                 {{-- Tombol Edit --}}
                                 @can('edit-transaksi')
@@ -325,6 +328,22 @@
 
                 @if ($type === 'retur')
                     <div class="mb-4">
+                        <label class="block mb-1 text-sm dark:text-white">Jenis Pengembalian</label>
+                        <p class="text-xs text-gray-500 mt-1">
+                            Pilih <strong>Retur Uang</strong> jika mengembalikan dana ke customer, atau <strong>Retur
+                                Barang</strong> jika menukar barang.
+                        </p>
+                        <select wire:model.live="return_type"
+                            class="w-full border rounded p-2 bg-white dark:bg-zinc-800 dark:text-white dark:border-zinc-600">
+                            <option value="">Pilih Jenis</option>
+                            <option value="uang">Retur Uang</option>
+                            <option value="barang">Retur Barang</option>
+                        </select>
+                        @error('return_type')
+                            <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span>
+                        @enderror
+                    </div>
+                    <div class="mb-4">
                         <label>Tipe Retur</label>
                         <select wire:model.live="subtype"
                             class="w-full border rounded p-2 bg-white dark:bg-zinc-800 dark:text-white dark:border-zinc-600">
@@ -339,39 +358,84 @@
                     @if ($subtype === 'retur_out')
                         {{-- Supplier untuk Retur ke Supplier --}}
                         <div class="mb-3">
-                            <label class="block mb-1 text-sm dark:text-white">Supplier</label>
-                            <input type="text" wire:model.live="supplier_name"
-                                wire:input="fetchSuggestions('supplier', $event.target.value)"
-                                wire:blur="hideSuggestions('supplier')"
-                                class="w-full border rounded px-3 py-2 dark:bg-zinc-800 dark:text-white"
-                                placeholder="Cari Supplier..." autocomplete="off">
-
-                            @if ($suggestions['supplier'])
-                                <ul
-                                    class="absolute z-20 w-full bg-white border border-gray-300 rounded mt-1 max-h-60 overflow-auto max-w-full sm:max-w-[90%] md:max-w-[80%] lg:max-w-[70%]">
-                                    @foreach ($suggestions['supplier'] as $suggestion)
-                                        <li wire:click="selectSuggestion('supplier', '{{ $suggestion }}')"
-                                            class="px-4 py-2 bg-white dark:bg-zinc-800 text-gray-800 dark:text-white hover:bg-gray-100 dark:hover:bg-zinc-700 hover:text-black dark:hover:text-gray-200 cursor-pointer transition duration-150">
-                                            {{ $suggestion }}
-                                        </li>
-                                    @endforeach
-                                </ul>
-                            @endif
-
+                            {{-- <label class="block mb-1 text-sm dark:text-white">Supplier</label>
+                            <select wire:model.live="supplier_id"
+                                wire:change="tryAutoFillItemsFromPreviousTransaction"
+                                class="w-full border rounded p-2 dark:bg-zinc-800 dark:text-white dark:border-zinc-600">
+                                <option value="">Pilih Supplier</option>
+                                @foreach ($suppliers as $supplier)
+                                    <option value="{{ $supplier->id }}">{{ $supplier->name }}</option>
+                                @endforeach
+                            </select>
                             @error('supplier_id')
                                 <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span>
-                            @enderror
+                            @enderror --}}
+                            <div x-data x-init="window.initSelect = () => {
+                                $('#supplier-select').select2().on('change', function(e) {
+                                    @this.set('supplier_id', $(this).val());
+                                    @this.call('tryAutoFillItemsFromPreviousTransaction');
+                                });
+                            };
+                            initSelect();
+                            Livewire.on('reinitSelect', () => {
+                                $('#supplier-select').select2();
+                            });">
+                                <label class="block mb-1 text-sm dark:text-white">Supplier</label>
+                                <select id="supplier-select"
+                                    class="w-full border rounded p-2 dark:bg-zinc-800 dark:text-white dark:border-zinc-600">
+                                    <option value="">Pilih Supplier</option>
+                                    @foreach ($suppliers as $supplier)
+                                        <option value="{{ $supplier->id }}"
+                                            @if ($supplier_id == $supplier->id) selected @endif>
+                                            {{ $supplier->name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                                @error('supplier_id')
+                                    <span class="text-red-500 text-xs">{{ $message }}</span>
+                                @enderror
+                            </div>
                         </div>
                     @elseif($subtype === 'retur_in')
                         {{-- Input Nama Customer --}}
                         <div class="mb-3">
-                            <label class="block mb-1 text-sm dark:text-white">Customer</label>
-                            <input type="text" wire:model.live="customer_name"
-                                class="w-full border rounded p-2 dark:bg-zinc-800 dark:text-white dark:border-zinc-600"
-                                placeholder="Nama customer...">
-                            @error('customer_name')
+                            {{-- <label class="block mb-1 text-sm dark:text-white">Customer</label> --}}
+                            {{-- <select wire:model.live="customer_id"
+                                wire:change="tryAutoFillItemsFromPreviousTransaction"
+                                class="w-full border rounded p-2 dark:bg-zinc-800 dark:text-white dark:border-zinc-600">
+                                <option value="">Pilih Customer</option>
+                                @foreach ($customers as $customer)
+                                    <option value="{{ $customer->id }}">{{ $customer->name }}</option>
+                                @endforeach
+                            </select> --}}
+                            {{-- @error('customer_id')
                                 <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span>
-                            @enderror
+                            @enderror --}}
+                            <div x-data x-init="window.initSelect = () => {
+                                $('#customer-select').select2().on('change', function(e) {
+                                    @this.set('customer_id', $(this).val());
+                                    @this.call('tryAutoFillItemsFromPreviousTransaction');
+                                });
+                            };
+                            initSelect();
+                            Livewire.on('reinitSelect', () => {
+                                $('#customer-select').select2();
+                            });">
+                                <label class="block mb-1 text-sm dark:text-white">Customer</label>
+                                <select id="customer-select"
+                                    class="w-full border rounded p-2 dark:bg-zinc-800 dark:text-white dark:border-zinc-600">
+                                    <option value="">Pilih Customer</option>
+                                    @foreach ($customers as $customer)
+                                        <option value="{{ $customer->id }}"
+                                            @if ($customer_id == $customer->id) selected @endif>
+                                            {{ $customer->name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                                @error('customer_id')
+                                    <span class="text-red-500 text-xs">{{ $message }}</span>
+                                @enderror
+                            </div>
                         </div>
                     @endif
                 @elseif ($type === 'in')

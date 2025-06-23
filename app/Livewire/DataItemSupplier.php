@@ -174,9 +174,19 @@ class DataItemSupplier extends Component
 
     public function updatedItemInputs()
     {
-        $itemIds = array_column($this->itemInputs, 'item_id');
-        if (count($itemIds) !== count(array_unique($itemIds))) {
-            $this->dispatch('alert-error', ['message' => 'Barang tidak boleh duplikat.']);
+        $itemIds = collect($this->itemInputs)
+            ->pluck('item_id')
+            ->filter() // hanya item yang sudah dipilih
+            ->toArray();
+
+        $counts = array_count_values($itemIds);
+
+        $isDuplicate = collect($counts)->filter(fn($count) => $count > 1)->isNotEmpty();
+
+        if ($isDuplicate) {
+            $this->addError('itemInputs', 'Barang tidak boleh duplikat.');
+        } else {
+            $this->resetErrorBag('itemInputs');
         }
     }
 
@@ -270,6 +280,18 @@ class DataItemSupplier extends Component
 
     public function save()
     {
+        $itemIds = collect($this->itemInputs)
+            ->pluck('item_id')
+            ->filter()
+            ->toArray();
+
+        $counts = array_count_values($itemIds);
+
+        if (collect($counts)->filter(fn($count) => $count > 1)->isNotEmpty()) {
+            $this->addError('itemInputs', 'Barang tidak boleh duplikat.');
+            return;
+        }
+
         foreach ($this->itemInputs as &$item) {
             if (!isset($item['conversions']) || !is_array($item['conversions'])) {
                 $item['conversions'] = [['to_unit_id' => null, 'factor' => null]];

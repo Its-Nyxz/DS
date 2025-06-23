@@ -50,8 +50,12 @@ class DataStockTransaction extends Component
     public string $opname_type = '';
 
     public $supplier_name, $item_name;
+    public $return_type = '';
     public $item_supplier_name = '';  // Menyimpan pencarian nama item supplier
     public $item_supplier_suggestions = [];  // Menyimpan hasil suggestion item supplier
+    public $related_transaction_id = null;
+    public $customers = [];
+    public $suppliers = [];
 
     public $suggestions = [
         'supplier' => [],
@@ -97,6 +101,8 @@ class DataStockTransaction extends Component
         if (!in_array($type, ['in', 'out', 'retur', 'opname'])) {
             abort(404);
         }
+        $this->customers = Customer::orderBy('name')->get();
+        $this->suppliers = Supplier::orderBy('name')->get();
 
         $this->type = $type;
         $this->resetForm();
@@ -313,60 +319,25 @@ class DataStockTransaction extends Component
     {
         $actualType = $this->getActualType();
 
-        if ($actualType === 'retur_in' && $this->customer_name && $this->transaction_date) {
-            $customerSlug = Str::slug($this->customer_name);
-            $customer = Customer::where('slug', $customerSlug)->first();
+        if ($actualType === 'retur_in' && $this->customer_id && $this->transaction_date) {
+            $query = StockTransaction::with('items')
+                ->where('type', 'out')
+                ->where('customer_id', $this->customer_id)
+                ->whereDate('transaction_date', Carbon::parse($this->transaction_date)->toDateString());
 
-            if ($customer) {
-                $query = StockTransaction::with('items')
-                    ->where('type', 'out')
-                    ->where('customer_id', $customer->id)
-                    ->whereDate('transaction_date', Carbon::parse($this->transaction_date)->toDateString());
+            if (!empty($this->description)) {
+                $query->where('description', $this->description);
+            }
 
-                // Optional: cocokkan juga deskripsi jika tersedia
-                if (!empty($this->description)) {
-                    $query->where('description', $this->description);
-                }
+            $matchingTx = $query->latest()->first();
 
-                $matchingTx = $query->latest()->first();
-
-                if ($matchingTx) {
-                    // Iterasi melalui setiap item dan periksa konversi
-                    $this->items = $matchingTx->items->map(fn($i) => [
-                        'item_supplier_id' => $i->item_supplier_id,
-                        'item_id' => $i->item_id,
-                        'quantity' => $i->quantity, // Asli dari transaksi
-                        'unit_price' => $i->unit_price,
-                        'subtotal' => $i->quantity * $i->unit_price,
-                        'selected_unit_id' => $i->selected_unit_id,
-                        'unit_conversions' => $this->getAllUnitConversionsForItem($i->item_id)->toArray(),
-                    ])->toArray();
-
-                    // Memperhitungkan konversi satuan jika ada
-                    foreach ($this->items as &$item) {
-                        if ($item['selected_unit_id'] && isset($item['unit_conversions'])) {
-                            // Dapatkan faktor konversi dari unit yang dipilih
-                            $conversion = collect($item['unit_conversions'])->firstWhere('to_unit_id', $item['selected_unit_id']);
-                            if ($conversion && $conversion['factor'] > 0) {
-                                $factor = $conversion['factor'];
-
-                                // Update quantity berdasarkan konversi
-                                $item['quantity'] = round($item['quantity'] * $factor, 4);  // Sesuaikan dengan jumlah yang sudah dikonversi
-                                $item['subtotal'] = $item['quantity'] * $item['unit_price'];  // Update subtotal
-                            }
-                        }
-                    }
-
-                    $this->calculateTotal();
-
-                    $this->dispatch('alert-success', [
-                        'message' => 'Data barang berhasil diisi otomatis dari transaksi sebelumnya.'
-                    ]);
-                } else {
-                    $this->dispatch('alert-warning', [
-                        'message' => 'Tidak ditemukan transaksi sebelumnya dengan data yang cocok.'
-                    ]);
-                }
+            if ($matchingTx) {
+                $this->related_transaction_id = $matchingTx->id;
+                $this->fillItemsFromTransaction($matchingTx);
+                $this->calculateTotal();
+                $this->dispatch('alert-success', ['message' => 'Data berhasil diisi otomatis.']);
+            } else {
+                $this->dispatch('alert-warning', ['message' => 'Tidak ditemukan transaksi sebelumnya.']);
             }
         }
 
@@ -383,44 +354,42 @@ class DataStockTransaction extends Component
             $matchingTx = $query->latest()->first();
 
             if ($matchingTx) {
-                // Iterasi melalui setiap item dan periksa konversi
-                $this->items = $matchingTx->items->map(fn($i) => [
-                    'item_supplier_id' => $i->item_supplier_id,
-                    'item_id' => $i->item_id,
-                    'quantity' => $i->quantity, // Asli dari transaksi
-                    'unit_price' => $i->unit_price,
-                    'subtotal' => $i->quantity * $i->unit_price,
-                    'selected_unit_id' => $i->selected_unit_id,
-                    'unit_conversions' => $this->getAllUnitConversionsForItem($i->item_id)->toArray(),
-                ])->toArray();
-
-                // Memperhitungkan konversi satuan jika ada
-                foreach ($this->items as &$item) {
-                    if ($item['selected_unit_id'] && isset($item['unit_conversions'])) {
-                        // Dapatkan faktor konversi dari unit yang dipilih
-                        $conversion = collect($item['unit_conversions'])->firstWhere('to_unit_id', $item['selected_unit_id']);
-                        if ($conversion && $conversion['factor'] > 0) {
-                            $factor = $conversion['factor'];
-
-                            // Update quantity berdasarkan konversi
-                            $item['quantity'] = round($item['quantity'] * $factor, 4);  // Sesuaikan dengan jumlah yang sudah dikonversi
-                            $item['subtotal'] = $item['quantity'] * $item['unit_price'];  // Update subtotal
-                        }
-                    }
-                }
-
+                $this->related_transaction_id = $matchingTx->id;
+                $this->fillItemsFromTransaction($matchingTx);
                 $this->calculateTotal();
-
-                $this->dispatch('alert-success', [
-                    'message' => 'Data barang berhasil diisi otomatis dari transaksi sebelumnya.'
-                ]);
+                $this->dispatch('alert-success', ['message' => 'Data berhasil diisi otomatis.']);
             } else {
-                $this->dispatch('alert-warning', [
-                    'message' => 'Tidak ditemukan transaksi sebelumnya dengan data yang cocok.'
-                ]);
+                $this->dispatch('alert-warning', ['message' => 'Tidak ditemukan transaksi sebelumnya.']);
             }
         }
     }
+
+    protected function fillItemsFromTransaction($transaction)
+    {
+        $this->items = $transaction->items->map(function ($i) {
+            $item = [
+                'item_supplier_id' => $i->item_supplier_id,
+                'item_id' => $i->item_id,
+                'quantity' => $i->quantity,
+                'unit_price' => $i->unit_price,
+                'subtotal' => $i->quantity * $i->unit_price,
+                'selected_unit_id' => $i->selected_unit_id,
+                'unit_conversions' => $this->getAllUnitConversionsForItem($i->item_id)->toArray(),
+            ];
+
+            // Hitung konversi jika perlu
+            if ($item['selected_unit_id'] && $item['unit_conversions']) {
+                $conversion = collect($item['unit_conversions'])->firstWhere('to_unit_id', $item['selected_unit_id']);
+                if ($conversion && $conversion['factor'] > 0) {
+                    $item['quantity'] = round($item['quantity'] * $conversion['factor'], 4);
+                    $item['subtotal'] = $item['quantity'] * $item['unit_price'];
+                }
+            }
+
+            return $item;
+        })->toArray();
+    }
+
 
 
     public function updatedCustomerName()
@@ -428,7 +397,7 @@ class DataStockTransaction extends Component
         $this->tryAutoFillItemsFromPreviousTransaction();
     }
 
-    public function updatedSupplierId()
+    public function updatedSupplierName()
     {
         $this->tryAutoFillItemsFromPreviousTransaction();
     }
@@ -446,6 +415,7 @@ class DataStockTransaction extends Component
             'transaction_date' => 'required|date_format:Y-m-d\TH:i',
             'items.*.item_supplier_id' => 'required|exists:item_suppliers,id',
             'items.*.quantity' => 'required|numeric|min:1',
+
         ];
 
         // Tambahan validasi berdasarkan tipe
@@ -464,6 +434,11 @@ class DataStockTransaction extends Component
 
         if ($this->total <= 0) {
             $this->addError('total', 'Total transaksi tidak boleh nol.');
+            return;
+        }
+
+        if ($this->type === 'retur' && !$this->return_type) {
+            $this->addError('return_type', 'Jenis retur (uang atau barang) harus dipilih.');
             return;
         }
         // ✅ Jalankan validasi utama
@@ -564,6 +539,7 @@ class DataStockTransaction extends Component
                     'type' => $this->getActualType(),
                     'created_by' => auth()->id(),
                     'payment_type' => $this->payment_type ?? null,
+                    'related_transaction_id' => $this->related_transaction_id ?? null,
                 ]);
 
             if ($tx->is_approved) {
@@ -593,39 +569,201 @@ class DataStockTransaction extends Component
                 $unitPrice = $item['unit_price'] ?? $supplier->harga_beli;
                 $convertedQty = $factor > 0 ? $item['quantity'] / $factor : $item['quantity'];
                 $convertedPrice = $factor > 0 ? $unitPrice * $factor : $unitPrice;
+                // Logika khusus untuk retur barang: tidak ubah stok
+                $isReturnBarang = in_array($actualType, ['retur_in', 'retur_out']) && $this->return_type === 'barang';
+                $finalQty = $isReturnBarang ? 0 : $convertedQty;
 
                 $tx->items()->create([
                     'item_id' => $supplier->item_id,
                     'item_supplier_id' => $supplier->id,
                     'unit_id' => $supplier->item->unit_id,
-                    'quantity' => $convertedQty,
+                    'quantity' => $finalQty, // <- pakai finalQty, bukan convertedQty langsung
                     'unit_price' => $unitPrice,
-                    'subtotal' => $convertedQty * $convertedPrice,
+                    'subtotal' => $finalQty * $convertedPrice,
                     'selected_unit_id' => $item['selected_unit_id'] ?? null,
                 ]);
             }
 
             // Simpan transaksi kas hanya untuk tipe 'in' dan 'out'
-            if ($actualType === 'out') {
+            if (in_array($actualType, ['out', 'retur_in', 'retur_out'])) {
                 $this->saveCashTransaction($tx);
             }
 
-
-            $this->resetForm();
             if ($this->type === 'in') {
-                $pemilikUsers = User::role('pemilik')->get();
+                // Jika user adalah pemilik, langsung setujui
+                if (auth()->user()?->hasRole('pemilik')) {
+                    $tx->update([
+                        'is_approved' => true,
+                        'approved_by' => auth()->id(),
+                        'approved_at' => now(),
+                    ]);
 
-                $message = 'Transaksi stok masuk atau pembelian <span class="font-bold">'
-                    . $this->transaction_code . '</span> tanggal <span class="font-bold">'
-                    . $this->transaction_date . '</span> membutuhkan <span class="text-yellow-500 font-semibold">persetujuan</span>.';
+                    // Simpan transaksi kas langsung
+                    $this->saveCashTransaction($tx);
+                } else {
+                    // Kirim notifikasi persetujuan ke pemilik
+                    $pemilikUsers = User::role('pemilik')->get();
 
-                $url = '/transactions/in'; // ✅ URL diperbaiki
-                $title = 'Persetujuan Transaksi Pembelian'; // ✅ Tambahkan title
+                    $message = 'Transaksi stok masuk atau pembelian <span class="font-bold">'
+                        . $this->transaction_code . '</span> tanggal <span class="font-bold">'
+                        . $this->transaction_date . '</span> membutuhkan <span class="text-yellow-500 font-semibold">persetujuan</span>.';
 
-                Notification::send($pemilikUsers, new UserNotification($message, $url, $title));
+                    $url = '/transactions/in';
+                    $title = 'Persetujuan Transaksi Pembelian';
+
+                    Notification::send($pemilikUsers, new UserNotification($message, $url, $title));
+                }
             }
+            $this->resetForm();
             $this->dispatch('alert-success', ['message' => 'Transaksi berhasil Disimpan.']);
             $this->isModalOpen = false;
+        }
+    }
+
+    protected function saveCashTransaction($stockTransaction)
+    {
+        // Cek apakah sebelumnya sudah ada transaksi kas terkait
+        $existingCashTransaction = CashTransaction::where('stock_transaction_id', $stockTransaction->id)
+            ->first();
+
+        // Jika ada transaksi kas yang terkait dan payment_type berubah
+        if ($existingCashTransaction && $existingCashTransaction->payment_method !== $this->payment_type) {
+            // Soft delete transaksi kas yang lama
+            $existingCashTransaction->delete();
+        }
+
+        $shortCode = $stockTransaction->transaction_code
+            ? 'TX' . substr($stockTransaction->transaction_code, -6)
+            : 'STK' . $stockTransaction->id;
+
+        $prefix = $this->payment_type === 'cash' ? 'CASH' : 'TERM';
+        $referenceNumber = "{$shortCode}-{$prefix}-" . now()->format('ymd') . '-' . strtoupper(Str::random(4));
+        $debtCredit = $stockTransaction->type === 'in' ? 'utang' : 'piutang';
+
+        $isReturnBarang = in_array($stockTransaction->type, ['retur_in', 'retur_out']) && $this->return_type === 'barang';
+        $isReturnUang   = in_array($stockTransaction->type, ['retur_in', 'retur_out']) && $this->return_type === 'uang';
+        $isTypeIn       = $stockTransaction->type === 'in';
+        $isTypeOut      = $stockTransaction->type === 'out';
+
+        $debtCredit = $isTypeIn ? 'utang' : 'piutang';
+        $referenceBase = $isReturnUang ? "{$shortCode}-RET" : "{$shortCode}-" . strtoupper($this->payment_type);
+        $referenceNumber = "{$referenceBase}-" . now()->format('ymd') . '-' . strtoupper(Str::random(4));
+
+        // ✅ Jika retur barang → tidak ada perubahan uang
+        if ($isReturnBarang) {
+            $stockTransaction->update([
+                'total_amount' => $this->total,
+                'is_fully_paid' => true,
+                'fully_paid_at' => now(),
+            ]);
+            return;
+        }
+
+        // ✅ Jika retur uang → hitung berapa yang sudah dibayar
+        if ($isReturnUang) {
+            $originalTxId = $stockTransaction->related_transaction_id;
+
+            $paidAmount = CashTransaction::where('stock_transaction_id', $originalTxId)
+                ->where('amount', '>', 0)
+                ->whereIn('transaction_type', ['stock', 'payment'])
+                ->sum('amount');
+
+            $returnAmount = min($this->total, $paidAmount);
+            // Dianggap full refund jika returnAmount >= paidAmount, bukan total
+            $isFullyRefunded = $returnAmount >= $paidAmount && $paidAmount > 0;
+            // dd($originalTxId, $paidAmount, $this->total, $returnAmount, $isFullyRefunded);
+
+            $transactionType = $stockTransaction->type === 'retur_out' ? 'income' : 'expense';
+            $debtCredit = $stockTransaction->type === 'retur_out' ? 'piutang' : 'utang';
+            $note = ($stockTransaction->type === 'retur_out' ? 'Retur ke Supplier' : 'Retur dari Customer') .
+                ' | ' . ($isFullyRefunded ? 'Lunas' : 'Sebagian');
+
+            if ($returnAmount > 0) {
+                CashTransaction::create([
+                    'transaction_type' => $transactionType,
+                    'stock_transaction_id' => $stockTransaction->id,
+                    'amount' => $returnAmount,
+                    'transaction_date' => $stockTransaction->transaction_date,
+                    'payment_method' => $this->payment_type,
+                    'reference_number' => $referenceNumber,
+                    'note' => $note,
+                    'debt_credit' => $debtCredit,
+                ]);
+            }
+
+            if ($isFullyRefunded && $stockTransaction->related_transaction_id) {
+                $originalTxId = $stockTransaction->related_transaction_id;
+                $originalCashTransaction = CashTransaction::where('stock_transaction_id', $originalTxId)
+                    ->where('transaction_type', 'stock') // tetap stock!
+                    ->first();
+
+                $originalCashTransaction->update([
+                    'note' => $stockTransaction->type === 'retur_out'
+                        ? 'Retur ke Supplier | Lunas'
+                        : 'Retur dari Customer | Lunas',
+                ]);
+
+                // Pastikan hanya update transaksi 'in' atau 'out' (bukan retur)
+                $originalStockTransaction = StockTransaction::where('id', $originalTxId)
+                    ->whereIn('type', ['in', 'out'])
+                    ->first();
+
+                if ($originalStockTransaction) {
+                    $originalStockTransaction->update([
+                        'is_fully_paid' => true,
+                        'fully_paid_at' => now(),
+                    ]);
+                }
+            }
+
+            $stockTransaction->update([
+                'total_amount' => $this->total,
+                'is_fully_paid' => $isFullyRefunded,
+                'fully_paid_at' => $isFullyRefunded ? now() : null,
+            ]);
+
+            return;
+        }
+
+
+        if ($this->payment_type === 'cash') {
+            // Pembayaran tunai (cash)
+            CashTransaction::create([
+                'transaction_type' => 'stock',
+                'stock_transaction_id' => $stockTransaction->id,
+                'amount' => $this->total,
+                'transaction_date' => $stockTransaction->transaction_date,
+                'payment_method' => 'cash',
+                'reference_number' => $referenceNumber,
+                'note' => $stockTransaction->type === 'in' ? 'Pembelian' : 'Penjualan' . ' | Lunas',
+                'debt_credit' =>  $debtCredit, // Tidak ada utang/piutang
+            ]);
+
+            // Update status pembayaran pada transaksi stok menjadi lunas
+            $stockTransaction->update([
+                'total_amount' => $this->total,
+                'is_fully_paid' => true,
+                'fully_paid_at' => now(),
+            ]);
+        } elseif ($this->payment_type === 'term') {
+            // Pembayaran cicilan (term)
+            CashTransaction::create([
+                'transaction_type' => 'stock',
+                'stock_transaction_id' => $stockTransaction->id,
+                'amount' => 0, // Belum ada pembayaran, cicilan akan dibayar di lain waktu
+                'transaction_date' => now(),
+                'payment_method' => 'term',
+                'reference_number' => $referenceNumber,
+                'note' => $stockTransaction->type === 'in' ? 'Cicilan Pembelian' : 'Cicilan Penjualan',
+                'debt_credit' => $stockTransaction->type === 'in' ? 'utang' : 'piutang', // Tentukan apakah ini utang atau piutang
+            ]);
+
+            // Update status pembayaran pada transaksi stok menjadi tidak lunas (belum dibayar penuh)
+            $stockTransaction->update([
+                'total_amount' => $this->total,
+                'is_fully_paid' => false,
+                'fully_paid_at' => null,
+            ]);
         }
     }
 
@@ -685,68 +823,6 @@ class DataStockTransaction extends Component
 
         $this->dispatch('alert-success', ['message' => 'Stock Opname berhasil disimpan.']);
         $this->isModalOpen = false;
-    }
-
-    protected function saveCashTransaction($stockTransaction)
-    {
-        // Cek apakah sebelumnya sudah ada transaksi kas terkait
-        $existingCashTransaction = CashTransaction::where('stock_transaction_id', $stockTransaction->id)
-            ->first();
-
-        // Jika ada transaksi kas yang terkait dan payment_type berubah
-        if ($existingCashTransaction && $existingCashTransaction->payment_method !== $this->payment_type) {
-            // Soft delete transaksi kas yang lama
-            $existingCashTransaction->delete();
-        }
-
-
-        $shortCode = $stockTransaction->transaction_code
-            ? 'TX' . substr($stockTransaction->transaction_code, -6)
-            : 'STK' . $stockTransaction->id;
-
-        $prefix = $this->payment_type === 'cash' ? 'CASH' : 'TERM';
-        $referenceNumber = "{$shortCode}-{$prefix}-" . now()->format('ymd') . '-' . strtoupper(Str::random(4));
-        $debtCredit = $stockTransaction->type === 'in' ? 'utang' : 'piutang';
-
-        if ($this->payment_type === 'cash') {
-            // Pembayaran tunai (cash)
-            CashTransaction::create([
-                'transaction_type' => 'stock',
-                'stock_transaction_id' => $stockTransaction->id,
-                'amount' => $this->total,
-                'transaction_date' => $stockTransaction->transaction_date,
-                'payment_method' => 'cash',
-                'reference_number' => $referenceNumber,
-                'note' => $stockTransaction->type === 'in' ? 'Pembelian' : 'Penjualan' . ' | Lunas',
-                'debt_credit' =>  $debtCredit, // Tidak ada utang/piutang
-            ]);
-
-            // Update status pembayaran pada transaksi stok menjadi lunas
-            $stockTransaction->update([
-                'total_amount' => $this->total,
-                'is_fully_paid' => true,
-                'fully_paid_at' => now(),
-            ]);
-        } elseif ($this->payment_type === 'term') {
-            // Pembayaran cicilan (term)
-            CashTransaction::create([
-                'transaction_type' => 'stock',
-                'stock_transaction_id' => $stockTransaction->id,
-                'amount' => 0, // Belum ada pembayaran, cicilan akan dibayar di lain waktu
-                'transaction_date' => now(),
-                'payment_method' => 'term',
-                'reference_number' => $referenceNumber,
-                'note' => $stockTransaction->type === 'in' ? 'Cicilan Pembelian' : 'Cicilan Penjualan',
-                'debt_credit' => $stockTransaction->type === 'in' ? 'utang' : 'piutang', // Tentukan apakah ini utang atau piutang
-            ]);
-
-            // Update status pembayaran pada transaksi stok menjadi tidak lunas (belum dibayar penuh)
-            $stockTransaction->update([
-                'total_amount' => $this->total,
-                'is_fully_paid' => false,
-                'fully_paid_at' => null,
-            ]);
-        }
     }
 
 

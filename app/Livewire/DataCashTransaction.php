@@ -146,6 +146,81 @@ class DataCashTransaction extends Component
         $this->showDetailModal = true;
     }
 
+    public function exportPdf()
+    {
+        // Ambil data sesuai filter aktif
+        $query = CashTransaction::with(['stockTransaction.cashTransactions'])
+            ->where('transaction_type', 'stock')
+            ->whereNotNull('stock_transaction_id');
+
+        if ($this->type === 'utang') {
+            $query->where('debt_credit', 'utang');
+        } elseif ($this->type === 'piutang') {
+            $query->where('debt_credit', 'piutang');
+        }
+
+        if (!empty($this->search)) {
+            $query->where(function ($q) {
+                $q->where('note', 'like', "%{$this->search}%")
+                    ->orWhere('reference_number', 'like', "%{$this->search}%")
+                    ->orWhere('payment_method', 'like', "%{$this->search}%");
+            });
+        }
+
+        if ($this->startDate) {
+            $query->whereDate('transaction_date', '>=', Carbon::parse($this->startDate));
+        }
+
+        if ($this->endDate) {
+            $query->whereDate('transaction_date', '<=', Carbon::parse($this->endDate));
+        }
+
+        if ($this->paymentStatus === 'paid') {
+            $query->whereHas('stockTransaction', fn($q) => $q->where('is_fully_paid', true));
+        } elseif ($this->paymentStatus === 'unpaid') {
+            $query->whereHas('stockTransaction', fn($q) => $q->where('is_fully_paid', false));
+        }
+
+        $transactions = $query->orderBy($this->orderBy, $this->orderDirection)->get();
+
+        // Proses hitung paid dan remaining tiap transaksi
+        foreach ($transactions as $tx) {
+            $tx->paid = $tx->stockTransaction?->cashTransactions
+                ->where('amount', '>', 0)
+                ->sum('amount') ?? 0;
+
+            $tx->total = $tx->stockTransaction?->total_amount ?? $tx->amount;
+            $tx->remaining = $tx->total - $tx->paid;
+        }
+
+        $typeLabel = ucfirst($this->type);
+        $startFormatted = Carbon::parse($this->startDate)->format('d-m-Y');
+        $endFormatted = Carbon::parse($this->endDate)->format('d-m-Y');
+
+        $html = view('pdf.cash-transactions', [
+            'transactions' => $transactions,
+            'title' => "Laporan Kas {$typeLabel} ({$startFormatted} - {$endFormatted})",
+        ])->render();
+
+        $pdf = new \TCPDF();
+        $pdf->SetMargins(10, 10, 10);
+        $pdf->AddPage();
+        $pdf->SetFont('helvetica', '', 10);
+        $pdf->writeHTML($html, true, false, true, false, '');
+
+        $filename = "laporan_kas_{$this->type}_{$startFormatted}_{$endFormatted}.pdf";
+
+        return response()->stream(
+            fn() => $pdf->Output($filename, 'I'),
+            200,
+            [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => "inline; filename={$filename}",
+            ]
+        );
+    }
+
+
     public function render()
     {
         $query = CashTransaction::with(['stockTransaction.cashTransactions'])

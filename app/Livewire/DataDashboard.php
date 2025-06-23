@@ -9,9 +9,10 @@ use App\Models\Brand;
 use Livewire\Component;
 use App\Models\Supplier;
 use App\Models\ItemSupplier;
+use App\Models\CashTransaction;
 use App\Models\StockTransaction;
-use App\Models\StockTransactionPaymentSchedule;
 use Illuminate\Support\Facades\Cache;
+use App\Models\StockTransactionPaymentSchedule;
 
 class DataDashboard extends Component
 {
@@ -20,7 +21,7 @@ class DataDashboard extends Component
     public $approvedIn = 0;
     public $pendingIn = 0;
     public $totalIn = 0;
-    public $chartRange = 'last_7_days';
+    public $chartRange = 'today';
     public $transactionChartData = [];
     public $totalTransactionCount = 0;
     public $dueDateWarning = [];
@@ -94,65 +95,56 @@ class DataDashboard extends Component
             default => [Carbon::now()->subDays(7), Carbon::now()],
         };
 
-        $transactions = StockTransaction::with(['items:id,stock_transaction_id,subtotal']) // hanya kolom dibutuhkan
-            ->select('id', 'type', 'transaction_date', 'is_approved') // hindari ambil semua kolom
-            ->whereBetween('transaction_date', $range)
-            ->whereNull('deleted_at')
-            ->when(true, function ($query) {
-                $query->where(function ($q) {
-                    $q->where('type', '!=', 'in')
-                        ->orWhere(function ($q2) {
-                            $q2->where('type', 'in')->where('is_approved', true);
-                        });
-                });
-            })
+        $transactions = CashTransaction::whereBetween('transaction_date', $range)
+            ->where('amount', '!=', 0)
             ->get();
 
-        // Kelompokkan transaksi berdasarkan tipe
-        $grouped = $transactions->groupBy('type');
+        // Debit: pemasukan ke kas
+        $getDebit = function ($tx) {
+            return (
+                in_array($tx->transaction_type, ['income', 'transfer_in', 'refund_in']) ||
+                ($tx->transaction_type === 'stock' && $tx->debt_credit === 'piutang') ||
+                ($tx->transaction_type === 'payment' && $tx->debt_credit === 'piutang')
+            ) ? $tx->amount : 0;
+        };
 
-        // Inisialisasi variabel total pendapatan dan total pengeluaran
+        // Kredit: pengeluaran dari kas
+        $getKredit = function ($tx) {
+            return (
+                in_array($tx->transaction_type, ['expense']) ||
+                ($tx->transaction_type === 'stock' && $tx->debt_credit === 'utang') ||
+                ($tx->transaction_type === 'payment' && $tx->debt_credit === 'utang')
+            ) ? $tx->amount : 0;
+        };
+
         $totalPendapatan = 0;
         $totalPengeluaran = 0;
 
-        // Array hasil untuk chart
-        $result = [];
-
-        // Proses transaksi berdasarkan tipe
-        foreach ($grouped as $type => $items) {
-            // Hitung subtotal dari items di setiap transaksi
-            $subtotal = $items->flatMap->items->sum('subtotal');
-            $label = $this->transactionTypeLabels[$type] ?? ucfirst($type);
-
-            // Tentukan apakah transaksi ini masuk (pendapatan) atau keluar (pengeluaran)
-            if (in_array($type, ['in', 'retur_out'])) {
-                $totalPengeluaran += $subtotal; // Tambahkan ke total pendapatan
-            } elseif (in_array($type, ['out', 'retur_in'])) {
-                $totalPendapatan += $subtotal; // Tambahkan ke total pengeluaran
-            }
-
-            // Simpan hasil subtotal untuk chart
-            $result[$label] = $subtotal;
+        foreach ($transactions as $tx) {
+            $totalPendapatan += $getDebit($tx);
+            $totalPengeluaran += $getKredit($tx);
         }
 
-        // Simpan data chart
-        $this->transactionChartData = $result;
+        $this->transactionChartData = [
+            'Pemasukan' => $totalPendapatan,
+            'Pengeluaran' => $totalPengeluaran,
+        ];
 
-        // Hitung total transaksi (pendapatan dan pengeluaran)
-        $this->totalTransactionCount = $totalPendapatan + $totalPengeluaran;
-
-        // Simpan total pendapatan dan pengeluaran untuk digunakan di tampilan
         $this->totalPendapatan = $totalPendapatan;
         $this->totalPengeluaran = $totalPengeluaran;
         $this->totalKeuntungan = $totalPendapatan - $totalPengeluaran;
+        $this->totalTransactionCount = $totalPendapatan + $totalPengeluaran;
     }
 
 
     public array $transactionTypeLabels = [
-        'in' => 'Pembelian',
-        'out' => 'Penjualan',
-        'retur_in' => 'Retur Masuk',
-        'retur_out' => 'Retur Keluar',
+        'income' => 'Pemasukan',
+        'expense' => 'Pengeluaran',
+        'payment' => 'Pembayaran',
+        'stock' => 'Transaksi Stok',
+        'transfer_in' => 'Transfer Masuk',
+        'adjustment_in' => 'Penyesuaian',
+        // 'refund_in' => 'Pengembalian',
     ];
 
 

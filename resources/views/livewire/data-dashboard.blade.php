@@ -129,9 +129,9 @@
 
         <!-- Footer Section -->
         <div class="flex justify-between items-center pt-5 border-t mt-5 dark:border-gray-600">
-            <a href="{{ route('reportstock.index') }}"
+            <a href="{{ route('cashtransactions.index', ['type' => 'arus']) }}"
                 class="uppercase text-sm font-semibold inline-flex items-center rounded-lg text-blue-600 hover:text-blue-700 dark:hover:text-blue-500 hover:bg-gray-100 dark:hover:bg-gray-700 px-3 py-2">
-                Laporan Transaksi
+                Laporan Kas
                 <svg class="w-2.5 h-2.5 ms-1.5 rtl:rotate-180" xmlns="http://www.w3.org/2000/svg" fill="none"
                     viewBox="0 0 6 10">
                     <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -307,7 +307,7 @@
             const seriesData = Object.entries(chartData).map(([label, value], index) => ({
                 name: label,
                 data: [value],
-                color: ['#1A56DB', '#22C55E', '#F59E0B', '#6B7280', '#EF4444'][index % 5],
+                color: ['#10B981', '#F43F5E', '#F59E0B', '#6B7280', '#EF4444'][index % 5],
             }));
             // console.log('📊 seriesData:', seriesData);   
 

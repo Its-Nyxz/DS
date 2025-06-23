@@ -98,20 +98,33 @@
                                 </span>
                             </td>
                             @php
-                                $paid = $tx->stockTransaction?->cashTransactions->sum('amount') ?? 0;
-                                $total = $tx->stockTransaction?->total_amount ?? $tx->amount; // fallback jika tidak ada relasi
+                                $paid =
+                                    $tx->stockTransaction?->cashTransactions->where('amount', '>', 0)->sum('amount') ??
+                                    0;
+
+                                $total = $tx->stockTransaction?->total_amount ?? $tx->amount;
                                 $remaining = $total - $paid;
 
-                                $isUtang = $type === 'utang';
+                                $debtCredit = $tx->debt_credit; // 'utang' atau 'piutang'
+                                $isUtang = $debtCredit === 'utang';
+                                $isLunas = $remaining <= 0;
 
-                                // Warna berdasarkan type
+                                // WARNA TAGIHAN
                                 $classTagihan = $isUtang
-                                    ? 'text-red-600 font-semibold'
-                                    : 'text-yellow-600 font-semibold';
+                                    ? 'text-red-600 font-semibold' // Utang: merah
+                                    : 'text-yellow-600 font-semibold'; // Piutang: kuning (belum ditagih)
+
+                                // WARNA DIBAYAR
                                 $classDibayar = $isUtang
-                                    ? 'text-yellow-600 font-semibold'
-                                    : 'text-green-600 font-semibold';
-                                $classSisa = $isUtang ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold';
+                                    ? 'text-green-600 font-semibold' // Utang: dibayar = aman (hijau)
+                                    : 'text-green-600 font-semibold'; // Piutang: diterima = aman (hijau)
+
+                                // WARNA SISA
+                                $classSisa = $isLunas
+                                    ? 'text-gray-500 font-semibold' // Lunas: abu-abu netral
+                                    : ($isUtang
+                                        ? 'text-red-500 font-semibold' // Utang belum lunas: merah
+                                        : 'text-orange-500 font-semibold'); // Piutang belum lunas: oranye
                             @endphp
 
                             <td class="px-4 py-2 text-right {{ $classTagihan }}">
@@ -123,6 +136,7 @@
                             <td class="px-4 py-2 text-right {{ $classSisa }}">
                                 Rp {{ number_format($remaining, 0, ',', '.') }}
                             </td>
+
                             <td class="px-4 py-2">{{ $tx->note ?? '-' }}</td>
                             <td class="px-4 py-2 text-center flex justify-center gap-2 items-center">
                                 @if ($tx->transaction_type === 'stock' && !$tx->stockTransaction?->is_fully_paid)
@@ -134,14 +148,14 @@
                                     {{-- Jika type=in dan belum disetujui, tombol bayar disable --}}
                                     @if ($type === 'in' && !$isApproved)
                                         <button disabled
-                                            class="text-gray-400 bg-gray-100 px-2 py-1 text-xs rounded cursor-not-allowed"
+                                            class="text-gray-400 font-semibold bg-gray-100 px-2 py-1 text-xs rounded cursor-not-allowed"
                                             title="Menunggu persetujuan">
                                             Bayar
                                         </button>
                                     @else
                                         {{-- Semua kondisi lainnya, tetap bisa bayar --}}
                                         <button wire:click="openPaymentModal({{ $tx->stock_transaction_id }})"
-                                            class="text-blue-600 bg-blue-100 hover:bg-blue-200 px-2 py-1 text-xs rounded">
+                                            class="text-blue-600 font-semibold bg-blue-100 hover:bg-blue-200 px-2 py-1 text-xs rounded">
                                             Bayar
                                         </button>
                                     @endif
@@ -301,8 +315,8 @@
             <div x-show="open" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-40"></div>
 
             <div x-show="open"
-                class="fixed top-1/2 left-1/2 w-full max-w-xl transform -translate-x-1/2 -translate-y-1/2 z-50
-        bg-white dark:bg-zinc-800 rounded p-6 shadow-lg overflow-y-auto max-h-[90vh]">
+                class="fixed top-1/2 left-1/2 w-full max-w-3xl transform -translate-x-1/2 -translate-y-1/2 z-50
+                bg-white dark:bg-zinc-800 rounded p-6 shadow-lg overflow-y-auto max-h-[90vh]">
 
                 <h2 class="text-lg font-semibold mb-4 text-zinc-800 dark:text-white">
                     Detail Transaksi Kas

@@ -70,7 +70,7 @@ class DataReportStock extends Component
     public function showItemDetail($sku)
     {
         $item = Item::with('unit', 'brand')->where('sku', $sku)->first();
-
+        $stokAwal = $item->stock_awal;
         if (!$item) {
             $this->selectedItemDetail = [['error' => 'Item tidak ditemukan']];
             $this->showItemDetailModal = true;
@@ -96,6 +96,7 @@ class DataReportStock extends Component
                 $q->where('type', 'in')
                     ->where('is_approved', true)
                     ->whereBetween('transaction_date', [$start, $end])
+                    ->whereNull('deleted_at')
             )->sum('quantity');
 
         $jumlahKeluar = StockTransactionItem::where('item_id', $item->id)
@@ -104,6 +105,7 @@ class DataReportStock extends Component
                 fn($q) =>
                 $q->where('type', 'out')
                     ->whereBetween('transaction_date', [$start, $end])
+                    ->whereNull('deleted_at')
             )->sum('quantity');
 
         $jumlahReturIn = StockTransactionItem::where('item_id', $item->id)
@@ -112,6 +114,7 @@ class DataReportStock extends Component
                 fn($q) =>
                 $q->where('type', 'retur_in')
                     ->whereBetween('transaction_date', [$start, $end])
+                    ->whereNull('deleted_at')
             )->sum('quantity');
 
         $jumlahReturOut = StockTransactionItem::where('item_id', $item->id)
@@ -120,6 +123,7 @@ class DataReportStock extends Component
                 fn($q) =>
                 $q->where('type', 'retur_out')
                     ->whereBetween('transaction_date', [$start, $end])
+                    ->whereNull('deleted_at')
             )->sum('quantity');
 
         // Penyesuaian (adjustment) dihitung per status
@@ -130,17 +134,18 @@ class DataReportStock extends Component
                 fn($q) =>
                 $q->where('type', 'adjustment')
                     ->whereBetween('transaction_date', [$start, $end])
+                    ->whereNull('deleted_at')
             )->get();
 
         $totalPenyesuaian = $penyesuaian->sum(function ($op) {
             return (float) $op->difference;
         });
 
-
-        $total = round(max(0,  $item->stock_awal + $jumlahMasuk + $jumlahReturIn - $jumlahKeluar - $jumlahReturOut + $totalPenyesuaian), 2);
+        // dd($item->id, $stokAwal, $jumlahMasuk, $jumlahReturIn, $jumlahKeluar, $jumlahReturOut, $totalPenyesuaian);
+        $total = round(max(0,  $stokAwal + $jumlahMasuk + $jumlahReturIn - $jumlahKeluar - $jumlahReturOut + $totalPenyesuaian), 2);
 
         $this->selectedItemStockDetails = [[
-            'stok_awal' => $item->stock_awal, // bisa dihitung jika ingin, misalnya dari data sebelum $start
+            'stok_awal' => $stokAwal, // bisa dihitung jika ingin, misalnya dari data sebelum $start
             'masuk' => $jumlahMasuk,
             'keluar' => $jumlahKeluar,
             'retur_in' => $jumlahReturIn,
@@ -199,15 +204,12 @@ class DataReportStock extends Component
     // Menghitung stok saat ini dengan mempertimbangkan tanggal filter
     public function calculateStock($itemId)
     {
-        $itemSupplier = ItemSupplier::where('item_id', $itemId)->first();
-
-        if (!$itemSupplier) {
-            return 0;
-        }
+        $item = Item::find($itemId);
+        if (!$item) return 0;
 
         $stokMasuk = StockTransactionItem::where('item_id', $itemId)
             ->whereHas('transaction', function ($q) {
-                $q->where('type', 'in')->where('is_approved', true);
+                $q->where('type', 'in')->where('is_approved', true)->whereNull('deleted_at');
                 if ($this->startDate && $this->endDate) {
                     [$start, $end] = $this->getDateRange();
                     $q->whereBetween('transaction_date', [$start, $end]);
@@ -216,7 +218,7 @@ class DataReportStock extends Component
 
         $stokReturIn = StockTransactionItem::where('item_id', $itemId)
             ->whereHas('transaction', function ($q) {
-                $q->where('type', 'retur_in');
+                $q->where('type', 'retur_in')->whereNull('deleted_at');
                 if ($this->startDate && $this->endDate) {
                     [$start, $end] = $this->getDateRange();
                     $q->whereBetween('transaction_date', [$start, $end]);
@@ -225,7 +227,7 @@ class DataReportStock extends Component
 
         $stokKeluar = StockTransactionItem::where('item_id', $itemId)
             ->whereHas('transaction', function ($q) {
-                $q->where('type', 'out');
+                $q->where('type', 'out')->whereNull('deleted_at');
                 if ($this->startDate && $this->endDate) {
                     [$start, $end] = $this->getDateRange();
                     $q->whereBetween('transaction_date', [$start, $end]);
@@ -234,7 +236,7 @@ class DataReportStock extends Component
 
         $stokReturOut = StockTransactionItem::where('item_id', $itemId)
             ->whereHas('transaction', function ($q) {
-                $q->where('type', 'retur_out');
+                $q->where('type', 'retur_out')->whereNull('deleted_at');
                 if ($this->startDate && $this->endDate) {
                     [$start, $end] = $this->getDateRange();
                     $q->whereBetween('transaction_date', [$start, $end]);
@@ -245,7 +247,7 @@ class DataReportStock extends Component
         $penyesuaian = StockOpname::where('item_id', $itemId)
             ->with('stockTransaction')
             ->whereHas('stockTransaction', function ($q) {
-                $q->where('type', 'adjustment');
+                $q->where('type', 'adjustment')->whereNull('deleted_at');
                 if ($this->startDate && $this->endDate) {
                     [$start, $end] = $this->getDateRange();
                     $q->whereBetween('transaction_date', [$start, $end]);
@@ -255,8 +257,9 @@ class DataReportStock extends Component
         $jumlahPenyesuaian = $penyesuaian->sum(function ($op) {
             return (float) $op->difference;
         });
+        // dd($itemId, $item->stock_awal, $stokMasuk, $stokReturIn, $stokKeluar, $stokReturOut, $jumlahPenyesuaian);
 
-        $stokSekarang = $itemSupplier->item->stock_awal + $stokMasuk + $stokReturIn - $stokKeluar - $stokReturOut + $jumlahPenyesuaian;
+        $stokSekarang = $item->stock_awal + $stokMasuk + $stokReturIn - $stokKeluar - $stokReturOut + $jumlahPenyesuaian;
 
         return round(max(0, $stokSekarang), 2);
     }

@@ -145,9 +145,128 @@ class DataCashFlow extends Component
         $this->showDetailModal = true;
     }
 
-    public function render()
+    public function exportPdf()
     {
         $query = CashTransaction::with('stockTransaction');
+
+        if ($this->startDate) {
+            $query->whereDate('transaction_date', '>=', Carbon::parse($this->startDate));
+        }
+
+        if ($this->endDate) {
+            $query->whereDate('transaction_date', '<=', Carbon::parse($this->endDate));
+        }
+
+        if (!empty($this->search)) {
+            $query->where(function ($q) {
+                $q->where('note', 'like', '%' . $this->search . '%')
+                    ->orWhere('reference_number', 'like', '%' . $this->search . '%');
+            });
+        }
+
+        $transactions = $query->orderBy('transaction_date', 'asc')->get();
+
+        // Hitung saldo awal
+        $getDebit = function ($tx) {
+            return (
+                in_array($tx->transaction_type, ['income', 'transfer_in']) ||
+                ($tx->transaction_type === 'stock' && $tx->payment_method === 'cash' && $tx->debt_credit === 'piutang') ||
+                ($tx->transaction_type === 'payment' && $tx->debt_credit === 'piutang')
+            ) ? $tx->amount : 0;
+        };
+
+        $getKredit = function ($tx) {
+            return (
+                $tx->transaction_type === 'expense' ||
+                ($tx->transaction_type === 'stock' && $tx->payment_method === 'cash' && $tx->debt_credit === 'utang') ||
+                ($tx->transaction_type === 'payment' && $tx->debt_credit === 'utang')
+            ) ? $tx->amount : 0;
+        };
+
+        $saldoAwal = CashTransaction::whereDate('transaction_date', '<', Carbon::parse($this->startDate))
+            ->get()
+            ->reduce(fn($carry, $tx) => $carry + ($getDebit($tx) - $getKredit($tx)), 0);
+
+        $saldo = $saldoAwal;
+
+        $data = collect([
+            [
+                'tanggal' => 'Saldo Awal',
+                'keterangan' => '',
+                'debit' => 0,
+                'kredit' => 0,
+                'saldo' => $saldoAwal,
+            ]
+        ]);
+
+        $data = $data->merge(
+            $transactions->map(function ($tx) use (&$saldo, $getDebit, $getKredit) {
+                $debit = $getDebit($tx);
+                $kredit = $getKredit($tx);
+                $saldo += $debit - $kredit;
+
+                return [
+                    'tanggal' => Carbon::parse($tx->transaction_date)->format('d/m/Y H:i'),
+                    'keterangan' => trim(collect([
+                        $tx->stockTransaction?->transaction_code,
+                        $tx->note,
+                        $tx->stockTransaction?->supplier?->name
+                            ? '(' . $tx->stockTransaction->supplier->name . ')'
+                            : null,
+                        $tx->stockTransaction?->customer?->name
+                            ? '(' . $tx->stockTransaction->customer->name . ')'
+                            : null,
+                    ])->filter()->join(' ')) ?: '-',
+                    'reference' => $tx->reference_number ?? '-',
+                    'debit' => $debit,
+                    'kredit' => $kredit,
+                    'saldo' => $saldo,
+                ];
+            })
+        );
+
+        // Tambahkan total
+        $totalDebit = $data->sum('debit');
+        $totalKredit = $data->sum('kredit');
+        $totalSaldo = $data->last()['saldo'];
+
+        $data->push([
+            'tanggal' => 'Total',
+            'keterangan' => '',
+            'reference' => '',
+            'debit' => $totalDebit,
+            'kredit' => $totalKredit,
+            'saldo' => $totalSaldo,
+        ]);
+
+        $html = view('pdf.cash-flow-report', [
+            'transactions' => $data,
+            'start' => Carbon::parse($this->startDate)->format('d/m/Y'),
+            'end' => Carbon::parse($this->endDate)->format('d/m/Y'),
+        ])->render();
+
+        $pdf = new \TCPDF();
+        $pdf->SetMargins(10, 10, 10);
+        $pdf->AddPage();
+        $pdf->SetFont('helvetica', '', 10);
+        $pdf->writeHTML($html, true, false, true, false, '');
+
+        $filename = 'laporan_arus_kas_' . now()->translatedFormat('d_F_Y') . '.pdf';
+
+        return response()->stream(
+            fn() => $pdf->Output($filename, 'I'),
+            200,
+            [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => "inline; filename={$filename}",
+            ]
+        );
+    }
+
+
+    public function render()
+    {
+        $query = CashTransaction::with('stockTransaction')->where('amount', '!=', 0);
 
         // Filter tanggal
         if ($this->startDate) {
@@ -213,7 +332,16 @@ class DataCashFlow extends Component
                     'id' => $tx->id,
                     'tanggal' => Carbon::parse($tx->transaction_date)->format('d/m/Y H:i'),
                     'reference_number' => $tx->reference_number ?? '-',
-                    'keterangan' => trim("{$tx->stockTransaction?->transaction_code} {$tx->note}") ?: '-',
+                    'keterangan' => trim(collect([
+                        $tx->stockTransaction?->transaction_code,
+                        $tx->note,
+                        $tx->stockTransaction?->supplier?->name
+                            ? '(' . $tx->stockTransaction->supplier->name . ')'
+                            : null,
+                        $tx->stockTransaction?->customer?->name
+                            ? '(' . $tx->stockTransaction->customer->name . ')'
+                            : null,
+                    ])->filter()->join(' ')) ?: '-',
                     'debit' => $debit,
                     'kredit' => $kredit,
                     'saldo' => $saldo,

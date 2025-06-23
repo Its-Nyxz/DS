@@ -1,3 +1,3 @@
 <x-layouts.app>
-    <livewire:data-company :type="$type"  />
+    <livewire:data-company />
 </x-layouts.app>
