@@ -74,10 +74,10 @@ class DataCompany extends Component
             'owner_name'   => 'nullable|string',
             'bank_name'    => 'nullable|string',
             'bank_account' => 'nullable|string',
-            'link'         => 'nullable|string',
+            // 'link'         => 'nullable|string',
         ]);
 
-        $this->company->fill([
+        $this->company->update([
             'name'         => $this->name,
             'email'        => $this->email,
             'phone'        => $this->phone,
@@ -90,7 +90,7 @@ class DataCompany extends Component
             'description'  => $this->description,
             'promo'        => $this->promo,
             'link'         => $this->link,
-        ])->save();
+        ]);
 
         $this->dispatch('alert-success', ['message' => 'Profil perusahaan disimpan.']);
     }
