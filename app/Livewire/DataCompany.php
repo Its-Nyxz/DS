@@ -42,7 +42,6 @@ class DataCompany extends Component
         $this->description  = $this->company->description;
         $this->promo        = $this->company->promo;
         $this->link         = $this->company->link;
-
     }
     public function updatedLogo()
     {
@@ -65,6 +64,7 @@ class DataCompany extends Component
 
     public function save()
     {
+
         $this->validate([
             'name'         => 'required|string|max:255',
             'email'        => 'nullable|email',
@@ -74,7 +74,7 @@ class DataCompany extends Component
             'owner_name'   => 'nullable|string',
             'bank_name'    => 'nullable|string',
             'bank_account' => 'nullable|string',
-            'link'         => 'nullable|numeric',
+            'link'         => 'nullable|string',
         ]);
 
         $this->company->fill([
@@ -89,7 +89,7 @@ class DataCompany extends Component
             'slogan'       => $this->slogan,
             'description'  => $this->description,
             'promo'        => $this->promo,
-            'link'          => $this->link,
+            'link'         => $this->link,
         ])->save();
 
         $this->dispatch('alert-success', ['message' => 'Profil perusahaan disimpan.']);
