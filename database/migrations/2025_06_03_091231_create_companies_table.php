@@ -25,7 +25,7 @@ return new class extends Migration
             $table->string('slogan')->nullable();
             $table->text('description')->nullable();
             $table->text('promo')->nullable();
-            $table->string('link')->nullable();
+            $table->string('address_link')->nullable();
             $table->timestamps();
         });
     }

@@ -89,7 +89,7 @@ class DataCompany extends Component
             'slogan'       => $this->slogan,
             'description'  => $this->description,
             'promo'        => $this->promo,
-            'link'         => $this->link,
+            'address_link'         => $this->link,
         ]);
 
         $this->dispatch('alert-success', ['message' => 'Profil perusahaan disimpan.']);

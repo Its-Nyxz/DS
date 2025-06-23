@@ -94,9 +94,9 @@
                         </p>
 
                         @if ($company->address)
-                            @if ($company->link)
+                            @if ($company->address_link)
                                 <p class="text-sm mt-4 text-gray-500">
-                                    📍 <a href="{{ $company->link }}" class="underline hover:text-blue-600" target="_blank" rel="noopener">
+                                    📍 <a href="{{ $company->address_link }}" class="underline hover:text-blue-600" target="_blank" rel="noopener">
                                         {{ $company->address }}
                                     </a>
                                 </p>

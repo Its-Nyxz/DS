@@ -25,7 +25,7 @@ class CompanieSeeder extends Seeder
             'bank_account'  => '1234567890',
             'slogan'        => 'Toko Bangunan Terpercaya',
             'description'   => 'Toko Bangunan Terpercaya, Terjangkau dan Aman',
-            // 'link'          => 'https://maps.app.goo.gl/9M6hKktfZYWR1tzW8',
+            'address_link'          => 'https://maps.app.goo.gl/9M6hKktfZYWR1tzW8',
          
         ]);
     }
