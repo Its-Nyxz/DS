@@ -25,9 +25,7 @@ return new class extends Migration
             $table->string('slogan')->nullable();
             $table->text('description')->nullable();
             $table->text('promo')->nullable();
-            // Menambahkan latitude dan longitude
-            $table->float('latitude', 8, 6)->nullable(); // Latitude with float type
-            $table->float('longitude', 8, 6)->nullable(); // Longitude with float type
+            $table->string('link')->nullable();
             $table->timestamps();
         });
     }

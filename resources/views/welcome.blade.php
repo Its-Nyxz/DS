@@ -3,8 +3,6 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-        <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
         <title>{{ config('app.name') }}</title>
         @php
             $company = \App\Models\Companie::with('banners', 'backgrounds')->first();
@@ -95,9 +93,23 @@
                             {{ $company->description ?? 'Deskripsi perusahaan akan ditampilkan di sini.' }}
                         </p>
 
-                        <p class="text-sm mt-4 text-gray-500">
-                            {{ $company->address ?? 'Belum Diisi Alamatnya' }}
-                        </p>
+                        @if ($company->address)
+                            @if ($company->link)
+                                <p class="text-sm mt-4 text-gray-500">
+                                    📍 <a href="{{ $company->link }}" class="underline hover:text-blue-600" target="_blank" rel="noopener">
+                                        {{ $company->address }}
+                                    </a>
+                                </p>
+                            @else
+                                <p class="text-sm mt-4 text-gray-500">
+                                    {{ $company->address }}
+                                </p>
+                            @endif
+                        @else
+                            <p class="text-sm mt-4 text-gray-500">
+                                Belum Diisi Alamatnya
+                            </p>
+                        @endif
 
                         <p class="text-sm mt-4 text-gray-500">
                             {{ $company->promo ?? '' }}
@@ -120,13 +132,13 @@
                             @endif
                         </div>
                           <!-- Peta -->
-                        @php
+                        {{-- @php
                             $latitude = $company->latitude ?? -6.200000;
                             $longitude = $company->longitude ?? 106.816666;
                         @endphp
-                        <div style="width: 100%; max-width: 20rem; margin: 1rem auto;">
+                        <div style="width: 100%; max-width: 25rem; margin: 1rem auto;">
                             <div id="company-map" style="width: 100%; height: 10rem; border-radius: 0.5rem; overflow: hidden;"></div>
-                        </div>
+                        </div> --}}
                       </div>
                 </div>
                 <!-- Banner Section with Responsive Images -->
@@ -166,19 +178,6 @@
                 document.body.style.backgroundImage = `url('${backgrounds[activeBackground]}')`;
             }, 5000);
 
-            window.addEventListener('DOMContentLoaded', function () {
-                const map = L.map('company-map').setView([{{ $latitude }}, {{ $longitude }}], 15);
-
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    maxZoom: 19,
-                    attribution: '&copy; OpenStreetMap contributors'
-                }).addTo(map);
-
-                L.marker([{{ $latitude }}, {{ $longitude }}])
-                    .addTo(map)
-                    .bindPopup(`{{ $company->name ?? 'Lokasi Perusahaan' }}`)
-                    .openPopup();
-            });
         </script>
 
     </body>
