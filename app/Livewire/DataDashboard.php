@@ -11,6 +11,8 @@ use App\Models\Supplier;
 use App\Models\ItemSupplier;
 use App\Models\CashTransaction;
 use App\Models\StockTransaction;
+use App\Models\StockTransactionItem;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use App\Models\StockTransactionPaymentSchedule;
 
@@ -28,10 +30,14 @@ class DataDashboard extends Component
     public $totalPendapatan;
     public $totalPengeluaran;
     public $totalKeuntungan;
+    public $isPemilik = false;
+    public $salesTransactionCount = 0;
+    public $totalBarangTerjual = 0;
 
 
     public function mount()
     {
+        $this->isPemilik = Auth::user()?->hasRole('pemilik');
         $this->loadMasterCounts();
         $this->loadTransactionCounts();
         $this->loadChartData();
@@ -72,17 +78,41 @@ class DataDashboard extends Component
     {
         $today = Carbon::today();
 
-        $this->approvedIn = StockTransaction::where('type', 'in')
-            ->whereDate('transaction_date', $today)
-            ->where('is_approved', true)
-            ->count();
+        if ($this->isPemilik) {
+            $this->approvedIn = StockTransaction::where('type', 'in')
+                ->whereDate('transaction_date', $today)
+                ->where('is_approved', true)
+                ->count();
 
-        $this->pendingIn = StockTransaction::where('type', 'in')
-            ->whereDate('transaction_date', $today)
-            ->where('is_approved', false)
-            ->count();
+            $this->pendingIn = StockTransaction::where('type', 'in')
+                ->whereDate('transaction_date', $today)
+                ->where('is_approved', false)
+                ->count();
 
-        $this->totalIn = $this->approvedIn + $this->pendingIn;
+            $this->totalIn = $this->approvedIn + $this->pendingIn;
+        } else {
+            // Jumlah transaksi penjualan
+            $this->salesTransactionCount = CashTransaction::whereDate('transaction_date', $today)
+                ->where(function ($q) {
+                    $q->whereIn('transaction_type', ['income', 'transfer_in', 'refund_in'])
+                        ->orWhere(function ($q2) {
+                            $q2->where('transaction_type', 'payment')->where('debt_credit', 'piutang');
+                        })
+                        ->orWhere(function ($q3) {
+                            $q3->where('transaction_type', 'stock')->where('debt_credit', 'piutang');
+                        });
+                })
+                ->count();
+
+            // Jumlah barang yang dijual (dari StockTransaction type 'out')
+            $stockOutIds = StockTransaction::where('type', 'out')
+                ->whereDate('transaction_date', $today)
+                ->whereNull('deleted_at')
+                ->pluck('id');
+
+            $this->totalBarangTerjual = StockTransactionItem::whereIn('stock_transaction_id', $stockOutIds)
+                ->sum('quantity');
+        }
     }
 
     protected function loadChartData()
@@ -99,53 +129,47 @@ class DataDashboard extends Component
             ->where('amount', '!=', 0)
             ->get();
 
-        // Debit: pemasukan ke kas
-        $getDebit = function ($tx) {
-            return (
-                in_array($tx->transaction_type, ['income', 'transfer_in', 'refund_in']) ||
-                ($tx->transaction_type === 'stock' && $tx->debt_credit === 'piutang') ||
-                ($tx->transaction_type === 'payment' && $tx->debt_credit === 'piutang')
-            ) ? $tx->amount : 0;
-        };
-
-        // Kredit: pengeluaran dari kas
-        $getKredit = function ($tx) {
-            return (
-                in_array($tx->transaction_type, ['expense']) ||
-                ($tx->transaction_type === 'stock' && $tx->debt_credit === 'utang') ||
-                ($tx->transaction_type === 'payment' && $tx->debt_credit === 'utang')
-            ) ? $tx->amount : 0;
-        };
-
         $totalPendapatan = 0;
         $totalPengeluaran = 0;
 
         foreach ($transactions as $tx) {
-            $totalPendapatan += $getDebit($tx);
-            $totalPengeluaran += $getKredit($tx);
+            if ($this->isDebit($tx)) {
+                $totalPendapatan += $tx->amount;
+            } elseif ($this->isCredit($tx)) {
+                $totalPengeluaran += $tx->amount;
+            }
         }
-
-        $this->transactionChartData = [
-            'Pemasukan' => $totalPendapatan,
-            'Pengeluaran' => $totalPengeluaran,
-        ];
 
         $this->totalPendapatan = $totalPendapatan;
         $this->totalPengeluaran = $totalPengeluaran;
         $this->totalKeuntungan = $totalPendapatan - $totalPengeluaran;
         $this->totalTransactionCount = $totalPendapatan + $totalPengeluaran;
+
+        $this->transactionChartData = $this->isPemilik
+            ? ['Pemasukan' => $totalPendapatan, 'Pengeluaran' => $totalPengeluaran]
+            : ['Pendapatan' => $totalPendapatan];
     }
 
+    /**
+     * Determine if transaction is income
+     */
+    protected function isDebit($tx): bool
+    {
+        return in_array($tx->transaction_type, ['income', 'transfer_in', 'refund_in']) ||
+            ($tx->transaction_type === 'stock' && $tx->debt_credit === 'piutang') ||
+            ($tx->transaction_type === 'payment' && $tx->debt_credit === 'piutang');
+    }
 
-    public array $transactionTypeLabels = [
-        'income' => 'Pemasukan',
-        'expense' => 'Pengeluaran',
-        'payment' => 'Pembayaran',
-        'stock' => 'Transaksi Stok',
-        'transfer_in' => 'Transfer Masuk',
-        'adjustment_in' => 'Penyesuaian',
-        // 'refund_in' => 'Pengembalian',
-    ];
+    /**
+     * Determine if transaction is expense
+     */
+    protected function isCredit($tx): bool
+    {
+        return in_array($tx->transaction_type, ['expense']) ||
+            ($tx->transaction_type === 'stock' && $tx->debt_credit === 'utang') ||
+            ($tx->transaction_type === 'payment' && $tx->debt_credit === 'utang');
+    }
+
 
 
     public function render()
