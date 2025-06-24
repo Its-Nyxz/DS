@@ -68,6 +68,13 @@
                                     title="Edit Transaksi">
                                     <i class="fas fa-edit"></i>
                                 </button>
+                                <!-- Delete Button -->
+                                <button type="button"
+                                    onclick="confirmAlert('Yakin ingin menghapus data ini?', 'Ya, hapus!', () => @this.call('delete', {{ $tx['id'] }}))"
+                                    class="px-2 py-1 text-sm text-red-600 hover:text-white hover:bg-red-600 rounded transition duration-150"
+                                    title="Hapus">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
                                 <button wire:click="showCashDetail({{ $tx['id'] }})"
                                     class="text-indigo-600 hover:text-white hover:bg-indigo-600 p-1 rounded"
                                     title="Lihat Detail">
@@ -205,27 +212,41 @@
                     </div>
 
                     <div class="flex justify-between">
+                        <span><strong>Tipe Transaksi:</strong></span>
+                        <span>{{ ucfirst($transactionDetail['trans_type']) ?? '-' }}</span>
+                    </div>
+
+                    <div class="flex justify-between">
                         <span><strong>Catatan:</strong></span>
                         <span>{{ $transactionDetail['note'] ?? '-' }}</span>
                     </div>
 
-                    <div class="flex justify-between">
-                        <span><strong>Total Tagihan:</strong></span>
-                        <span class="text-red-600 font-semibold">Rp
-                            {{ number_format($transactionDetail['tagihan'], 0, ',', '.') }}</span>
-                    </div>
+                    @if ($transactionDetail['stock_id'])
+                        <div class="flex justify-between">
+                            <span><strong>Total Tagihan:</strong></span>
+                            <span class="text-red-600 font-semibold">Rp
+                                {{ number_format($transactionDetail['tagihan'], 0, ',', '.') }}</span>
+                        </div>
 
-                    <div class="flex justify-between">
-                        <span><strong>Sudah Dibayar:</strong></span>
-                        <span class="text-green-600 font-semibold">Rp
-                            {{ number_format($transactionDetail['dibayar'], 0, ',', '.') }}</span>
-                    </div>
+                        <div class="flex justify-between">
+                            <span><strong>Sudah Dibayar:</strong></span>
+                            <span class="text-green-600 font-semibold">Rp
+                                {{ number_format($transactionDetail['dibayar'], 0, ',', '.') }}</span>
+                        </div>
 
-                    <div class="flex justify-between">
-                        <span><strong>Sisa:</strong></span>
-                        <span class="text-yellow-600 font-semibold">Rp
-                            {{ number_format($transactionDetail['sisa'], 0, ',', '.') }}</span>
-                    </div>
+                        <div class="flex justify-between">
+                            <span><strong>Sisa:</strong></span>
+                            <span class="text-yellow-600 font-semibold">Rp
+                                {{ number_format($transactionDetail['sisa'], 0, ',', '.') }}</span>
+                        </div>
+                    @else
+                        <div class="flex justify-between">
+                            <span><strong>Nominal:</strong></span>
+                            <span>Rp
+                                {{ number_format($transactionDetail['tagihan'], 0, ',', '.') }}</span>
+                        </div>
+                    @endif
+
 
                     {{-- Transaksi Stok --}}
                     @if (!empty($transactionDetail['transaction_code']))

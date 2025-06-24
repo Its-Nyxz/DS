@@ -131,9 +131,11 @@ class DataCashFlow extends Component
         $this->transactionDetail = [
             'is_stock' => $tx->transaction_type === 'stock',
             'is_payment' => $tx->transaction_type === 'payment',
+            'trans_type' => $tx->transaction_type,
             'transaction_code' => $stock?->transaction_code ?? '-',
             'reference' => $tx->reference_number ?? '-',
             'tanggal' => $tx->transaction_date,
+            'stock_id' => $tx->stock_transaction_id,
             'metode' => $tx->payment_method,
             'note' => $tx->note,
             'tagihan' => $tagihan,
@@ -143,6 +145,14 @@ class DataCashFlow extends Component
         ];
 
         $this->showDetailModal = true;
+    }
+
+    public function delete($id)
+    {
+        $tx = CashTransaction::findOrFail($id);
+        $tx->delete();
+
+        $this->dispatch('alert-success', ['message' => 'Transaksi berhasil dihapus.']);
     }
 
     public function exportPdf()
