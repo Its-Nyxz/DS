@@ -85,7 +85,8 @@
                     </flux:navlist.item>
                 @endcan
             </flux:navlist.group>
-              <flux:navlist.group :heading="__('Kas')" icon="folder" expandable
+            @can('manage-kas')
+            <flux:navlist.group :heading="__('Kas')" icon="folder" expandable
                 :expanded="request()->routeIs('cashtransactions.index')">
                 @can('manage-utang')    
                  <flux:navlist.item icon="document-minus" :href="route('cashtransactions.index', ['type' => 'utang'])"
@@ -108,6 +109,8 @@
                     </flux:navlist.item>
                 @endcan
             </flux:navlist.group>
+            @endcan
+            
 
             @can('view-laporan') 
             {{-- <flux:navlist.group :heading="__('Laporan')" icon="chart-bar" expandable

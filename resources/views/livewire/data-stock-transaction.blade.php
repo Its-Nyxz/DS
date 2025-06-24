@@ -8,7 +8,7 @@
 
     $field = [
         'in' => 'Pembelian',
-        'out' => 'Keluar',
+        'out' => 'Penjualan',
         'retur' => 'Retur',
         'opname' => 'Stock Opname',
     ];

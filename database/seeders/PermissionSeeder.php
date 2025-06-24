@@ -35,6 +35,7 @@ class PermissionSeeder extends Seeder
             'manage-companie',
             'manage-permissions',
             'manage-arus-kas',
+            'manage-kas',
             'manage-utang',
             'manage-piutang',
         ];
@@ -70,6 +71,7 @@ class PermissionSeeder extends Seeder
             'manage-supplier-item',
             'manage-companie',
             'manage-permissions',
+            'manage-kas',
             'manage-arus-kas',
             'manage-utang',
             'manage-piutang',
