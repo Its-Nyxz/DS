@@ -27,7 +27,7 @@ class DatabaseSeeder extends Seeder
             PermissionSeeder::class,
             UnitSeeder::class,
             BrandSeeder::class,
-            SupplierSeeder::class,
+            // SupplierSeeder::class,
             CompanieSeeder::class,
             // CompanieBannersSeeder::class,
             // CompanieBackgroundSeeder::class,
