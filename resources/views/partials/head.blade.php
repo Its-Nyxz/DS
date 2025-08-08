@@ -14,6 +14,7 @@
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 @endif
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.0/css/all.min.css">
 {{-- <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png"> --}}
@@ -22,7 +23,7 @@
 
 @vite(['resources/css/app.css', 'resources/js/app.js'])
 @fluxAppearance
-<script src="https://kit.fontawesome.com/5fd2369345.js" crossorigin="anonymous"></script>
+{{-- <script src="https://kit.fontawesome.com/5fd2369345.js" crossorigin="anonymous"></script> --}}
 <script src="https://code.jquery.com/jquery-3.7.1.js" integrity="sha256-eKhayi8LEQwp4NKxN+CfCh+3qOVUtJn3QNZ0TciWLP4="
     crossorigin="anonymous"></script>
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
