@@ -95,120 +95,120 @@
             {{ $items->links() }}
         </div>
 
-        {{-- Modal --}}
-        <div x-data="{ open: @entangle('isModalOpen') }">
-            <div x-show="open" class="fixed inset-0 bg-black/30 backdrop-blur-sm z-40"></div>
-            <div x-show="open"
-                class="fixed z-50 top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-white dark:bg-zinc-800 p-6 rounded shadow"
-                x-transition>
-                <h2 class="text-xl font-semibold mb-4">{{ $itemId ? 'Edit' : 'Tambah' }} Barang</h2>
+    </div>
+    {{-- Modal --}}
+    <div x-data="{ open: @entangle('isModalOpen') }">
+        <div x-show="open" class="fixed inset-0 bg-black/30 backdrop-blur-sm z-40"></div>
+        <div x-show="open"
+            class="fixed top-1/2 left-1/2 w-full max-w-2xl transform -translate-x-1/2 -translate-y-1/2 z-50
+    bg-white dark:bg-zinc-800 rounded p-6 shadow-lg overflow-y-auto max-h-[90vh]">
+            <h2 class="text-xl font-semibold mb-4">{{ $itemId ? 'Edit' : 'Tambah' }} Barang</h2>
 
-                {{-- Nama --}}
-                <div class="mb-4">
-                    <label class="block mb-1">Nama</label>
-                    <input type="text" wire:model.live="name"
-                        class="w-full border rounded px-3 py-2 dark:bg-zinc-800 dark:text-white">
-                    @error('name')
-                        <small class="text-red-500">{{ $message }}</small>
-                    @enderror
-                </div>
+            {{-- Nama --}}
+            <div class="mb-4">
+                <label class="block mb-1">Nama</label>
+                <input type="text" wire:model.live="name"
+                    class="w-full border rounded px-3 py-2 dark:bg-zinc-800 dark:text-white">
+                @error('name')
+                    <small class="text-red-500">{{ $message }}</small>
+                @enderror
+            </div>
 
-                <div class="mb-4">
-                    <label class="block mb-1">Satuan</label>
-                    <input type="text" wire:model.live="unit_name"
-                        wire:input="fetchSuggestions('unit', $event.target.value)" wire:blur="hideSuggestions('unit')"
-                        class="w-full border rounded px-3 py-2 dark:bg-zinc-800 dark:text-white"
-                        placeholder="Cari Satuan..." autocomplete="off">
+            <div class="mb-4">
+                <label class="block mb-1">Satuan</label>
+                <input type="text" wire:model.live="unit_name"
+                    wire:input="fetchSuggestions('unit', $event.target.value)" wire:blur="hideSuggestions('unit')"
+                    class="w-full border rounded px-3 py-2 dark:bg-zinc-800 dark:text-white"
+                    placeholder="Cari Satuan..." autocomplete="off">
 
-                    @if ($suggestions['unit'])
-                        <ul
-                            class="absolute z-20 w-full bg-white border border-gray-300 rounded mt-1 max-h-60 overflow-auto">
-                            @foreach ($suggestions['unit'] as $suggestion)
-                                <li wire:click="selectSuggestion('unit', '{{ $suggestion }}')"
-                                    class="px-4 py-2 bg-white dark:bg-zinc-800 text-gray-800 dark:text-white hover:bg-gray-100 dark:hover:bg-zinc-700 hover:text-black dark:hover:text-gray-200 cursor-pointer transition duration-150">
-                                    {{ $suggestion }}
-                                </li>
-                            @endforeach
-                        </ul>
-                    @endif
-                </div>
+                @if ($suggestions['unit'])
+                    <ul
+                        class="absolute z-20 w-full bg-white border border-gray-300 rounded mt-1 max-h-60 overflow-auto">
+                        @foreach ($suggestions['unit'] as $suggestion)
+                            <li wire:click="selectSuggestion('unit', '{{ $suggestion }}')"
+                                class="px-4 py-2 bg-white dark:bg-zinc-800 text-gray-800 dark:text-white hover:bg-gray-100 dark:hover:bg-zinc-700 hover:text-black dark:hover:text-gray-200 cursor-pointer transition duration-150">
+                                {{ $suggestion }}
+                            </li>
+                        @endforeach
+                    </ul>
+                @endif
+            </div>
 
-                <div class="mb-4">
-                    <label class="block mb-1">Merek</label>
-                    <input type="text" wire:model.live="brand_name"
-                        wire:input="fetchSuggestions('brand', $event.target.value)" wire:blur="hideSuggestions('brand')"
-                        class="w-full border rounded px-3 py-2 dark:bg-zinc-800 dark:text-white"
-                        placeholder="Cari Merek..." autocomplete="off">
+            <div class="mb-4">
+                <label class="block mb-1">Merek</label>
+                <input type="text" wire:model.live="brand_name"
+                    wire:input="fetchSuggestions('brand', $event.target.value)" wire:blur="hideSuggestions('brand')"
+                    class="w-full border rounded px-3 py-2 dark:bg-zinc-800 dark:text-white" placeholder="Cari Merek..."
+                    autocomplete="off">
 
-                    @if ($suggestions['brand'])
-                        <ul
-                            class="absolute z-20 w-full bg-white border border-gray-300 rounded mt-1 max-h-60 overflow-auto">
-                            @foreach ($suggestions['brand'] as $suggestion)
-                                <li wire:click="selectSuggestion('brand', '{{ $suggestion }}')"
-                                    class="px-4 py-2 bg-white dark:bg-zinc-800 text-gray-800 dark:text-white hover:bg-gray-100 dark:hover:bg-zinc-700 hover:text-black dark:hover:text-gray-200 cursor-pointer transition duration-150">
-                                    {{ $suggestion }}
-                                </li>
-                            @endforeach
-                        </ul>
-                    @endif
-                </div>
+                @if ($suggestions['brand'])
+                    <ul
+                        class="absolute z-20 w-full bg-white border border-gray-300 rounded mt-1 max-h-60 overflow-auto">
+                        @foreach ($suggestions['brand'] as $suggestion)
+                            <li wire:click="selectSuggestion('brand', '{{ $suggestion }}')"
+                                class="px-4 py-2 bg-white dark:bg-zinc-800 text-gray-800 dark:text-white hover:bg-gray-100 dark:hover:bg-zinc-700 hover:text-black dark:hover:text-gray-200 cursor-pointer transition duration-150">
+                                {{ $suggestion }}
+                            </li>
+                        @endforeach
+                    </ul>
+                @endif
+            </div>
 
-                {{-- Min Stock --}}
-                <div class="mb-4">
-                    <label class="block mb-1">Stock Minimal</label>
-                    <input type="number" wire:model.live="min_stock"
-                        class="w-full border rounded px-3 py-2 dark:bg-zinc-800 dark:text-white">
-                    @error('min_stock')
-                        <small class="text-red-500">{{ $message }}</small>
-                    @enderror
-                </div>
+            {{-- Min Stock --}}
+            <div class="mb-4">
+                <label class="block mb-1">Stock Minimal</label>
+                <input type="number" wire:model.live="min_stock"
+                    class="w-full border rounded px-3 py-2 dark:bg-zinc-800 dark:text-white">
+                @error('min_stock')
+                    <small class="text-red-500">{{ $message }}</small>
+                @enderror
+            </div>
 
-                {{-- Harga Jual --}}
-                <div class="mb-4">
-                    <label class="block mb-1">Harga Jual</label>
-                    <input type="number" wire:model.live="harga_jual" step="0.01"
-                        class="w-full border rounded px-3 py-2 dark:bg-zinc-800 dark:text-white">
-                    @error('harga_jual')
-                        <small class="text-red-500">{{ $message }}</small>
-                    @enderror
-                </div>
+            {{-- Harga Jual --}}
+            <div class="mb-4">
+                <label class="block mb-1">Harga Jual</label>
+                <input type="number" wire:model.live="harga_jual" step="0.01"
+                    class="w-full border rounded px-3 py-2 dark:bg-zinc-800 dark:text-white">
+                @error('harga_jual')
+                    <small class="text-red-500">{{ $message }}</small>
+                @enderror
+            </div>
 
-                {{-- Stok Awal --}}
-                <div class="mb-4">
-                    <label class="block mb-1">Stok Awal</label>
-                    <input type="number" wire:model.live="stock_awal"
-                        class="w-full border rounded px-3 py-2 dark:bg-zinc-800 dark:text-white">
-                    @error('stok_awal')
-                        <small class="text-red-500">{{ $message }}</small>
-                    @enderror
-                </div>
+            {{-- Stok Awal --}}
+            <div class="mb-4">
+                <label class="block mb-1">Stok Awal</label>
+                <input type="number" wire:model.live="stock_awal"
+                    class="w-full border rounded px-3 py-2 dark:bg-zinc-800 dark:text-white">
+                @error('stok_awal')
+                    <small class="text-red-500">{{ $message }}</small>
+                @enderror
+            </div>
 
 
-                {{-- Gambar --}}
-                <div class="mb-4">
-                    <label class="block mb-1">Gambar</label>
-                    <input type="file" wire:model="img"
-                        class="w-full border rounded px-3 py-2 dark:bg-zinc-800 dark:text-white">
-                    @error('img')
-                        <small class="text-red-500">{{ $message }}</small>
-                    @enderror
+            {{-- Gambar --}}
+            <div class="mb-4">
+                <label class="block mb-1">Gambar</label>
+                <input type="file" wire:model="img"
+                    class="w-full border rounded px-3 py-2 dark:bg-zinc-800 dark:text-white">
+                @error('img')
+                    <small class="text-red-500">{{ $message }}</small>
+                @enderror
 
-                    @if ($img)
-                        <div class="mt-2">
-                            <img src="{{ $img->temporaryUrl() }}" class="w-20 h-20 object-cover rounded shadow">
-                        </div>
-                    @endif
-                </div>
+                @if ($img)
+                    <div class="mt-2">
+                        <img src="{{ $img->temporaryUrl() }}" class="w-20 h-20 object-cover rounded shadow">
+                    </div>
+                @endif
+            </div>
 
-                {{-- Tombol --}}
-                <div class="flex justify-end space-x-2">
-                    <button @click="open = false" class="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400">
-                        Batal
-                    </button>
-                    <button wire:click="save" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-                        Simpan
-                    </button>
-                </div>
+            {{-- Tombol --}}
+            <div class="flex justify-end space-x-2">
+                <button @click="open = false" class="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400">
+                    Batal
+                </button>
+                <button wire:click="save" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                    Simpan
+                </button>
             </div>
         </div>
     </div>
