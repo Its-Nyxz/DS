@@ -280,7 +280,7 @@
 
             <div x-show="open"
                 class="fixed top-1/2 left-1/2 w-full max-w-4xl transform -translate-x-1/2 -translate-y-1/2 z-50
-    bg-white dark:bg-zinc-800 rounded p-6 shadow-lg overflow-y-auto max-h-[90vh]">
+                bg-white dark:bg-zinc-800 rounded p-6 shadow-lg overflow-y-auto max-h-[90vh]">
 
                 <h2 class="text-xl font-bold mb-4">
                     {{ $editingId ? 'Edit' : 'Tambah' }} {{ $labels[$type] ?? ucfirst($type) }}
@@ -519,33 +519,49 @@
                             <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
                                 {{-- Barang --}}
                                 <div class="md:col-span-3">
-                                    <select wire:model.live="items.{{ $i }}.item_supplier_id"
-                                        wire:change="setItemSupplier({{ $i }}, $event.target.value)"
-                                        id="item_supplier_{{ $i }}"
-                                        class="w-full border rounded p-2 bg-white text-gray-800 border-gray-300 dark:bg-zinc-800 dark:text-white dark:border-zinc-700 overflow-y-auto max-h-60">
-                                        <option value="">-- Pilih Barang --</option>
-                                        @foreach ($itemSuppliers as $is)
-                                            <option value="{{ $is->id }}">
-                                                {{ $is->item->name }} {{ $is->item->brand->name }}
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                    @error("items.{$i}.item_supplier_id")
-                                        <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span>
-                                    @enderror
+                                    @if ($type === 'in' || ($type === 'retur' && $subtype === 'retur_out'))
+                                        {{-- IN / RETUR OUT: pilih dari itemSuppliers --}}
+                                        <select wire:model.live="items.{{ $i }}.item_supplier_id"
+                                            wire:change="setItemSupplier({{ $i }}, $event.target.value)"
+                                            class="w-full border rounded p-2 bg-white text-gray-800 border-gray-300 dark:bg-zinc-800 dark:text-white dark:border-zinc-700 overflow-y-auto max-h-60">
+                                            <option value="">-- Pilih Barang (Supplier) --</option>
+                                            @foreach ($itemSuppliers as $is)
+                                                <option value="{{ $is->id }}">
+                                                    {{ $is->item->name }} {{ $is->item->brand->name ?? '' }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                        @error("items.$i.item_supplier_id")
+                                            <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span>
+                                        @enderror
+                                    @else
+                                        {{-- OUT / RETUR IN: pilih dari master Items --}}
+                                        <select wire:model.live="items.{{ $i }}.item_id"
+                                            wire:change="setItemForOut({{ $i }}, $event.target.value)"
+                                            class="w-full border rounded p-2 bg-white text-gray-800 border-gray-300 dark:bg-zinc-800 dark:text-white dark:border-zinc-700 overflow-y-auto max-h-60">
+                                            <option value="">-- Pilih Barang --</option>
+                                            @foreach ($itemsMaster as $im)
+                                                <option value="{{ $im->id }}">
+                                                    {{ $im->name }} {{ $im->brand->name ?? '' }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                        @error("items.$i.item_id")
+                                            <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span>
+                                        @enderror
+                                    @endif
                                 </div>
 
-
+                                {{-- Konversi Satuan (tampilkan kalau OUT, OPNAME, atau RETUR IN) --}}
                                 @if (in_array($type, ['out', 'opname']) || ($type === 'retur' && $subtype === 'retur_in'))
-                                    {{-- Konversi --}}
                                     <div class="md:col-span-2">
                                         <select wire:model.live="items.{{ $i }}.selected_unit_id"
                                             class="w-full border rounded p-2 bg-white text-gray-800 border-gray-300 dark:bg-zinc-800 dark:text-white dark:border-zinc-700 overflow-y-auto max-h-60">
                                             <option value="">Konversi Satuan</option>
                                             @foreach ($conversions as $conv)
                                                 <option value="{{ (int) $conv['to_unit_id'] }}"
-                                                    {{ $conv['to_unit_id'] == $row['selected_unit_id'] ? 'selected' : '' }}>
-                                                    {{ $conv['to_unit']['symbol'] ?? '-' }} - Faktor:
+                                                    {{ $conv['to_unit_id'] == ($row['selected_unit_id'] ?? null) ? 'selected' : '' }}>
+                                                    {{ $conv['to_unit']['symbol'] ?? '-' }} — Faktor:
                                                     {{ $conv['factor'] }}
                                                 </option>
                                             @endforeach
@@ -553,6 +569,7 @@
                                     </div>
                                 @endif
                             </div>
+
 
                             {{-- Baris 2: Qty, Harga, Subtotal, Hapus --}}
                             <div class="flex flex-col md:flex-row justify-between gap-3 items-start">
