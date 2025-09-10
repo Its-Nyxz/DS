@@ -1,5 +1,5 @@
-@import 'tailwindcss';
-@import '../../vendor/livewire/flux/dist/flux.css';
+@import "tailwindcss";
+@import "../../vendor/livewire/flux/dist/flux.css";
 
 @source '../views';
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
@@ -9,7 +9,9 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-sans: "Instrument Sans", ui-sans-serif, system-ui, sans-serif,
+        "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
+        "Noto Color Emoji";
 
     --color-zinc-50: #fafafa;
     --color-zinc-100: #f5f5f5;
@@ -37,7 +39,6 @@
 }
 
 @layer base {
-
     *,
     ::after,
     ::before,
@@ -52,7 +53,7 @@
 }
 
 [data-flux-label] {
-    @apply  !mb-0 !leading-tight;
+    @apply !mb-0 !leading-tight;
 }
 
 input:focus[data-flux-control],
@@ -64,3 +65,56 @@ select:focus[data-flux-control] {
 /* \[:where(&)\]:size-4 {
     @apply size-4;
 } */
+/* ===== Select2 x Tailwind (Light/Dark) ===== */
+.select2-container .tw-s2-selection {
+    @apply w-full rounded border p-2 bg-white text-gray-800 border-gray-300;
+    min-height: 2.5rem; /* tinggi kira-kira sama dengan input lain */
+    display: flex;
+    align-items: center;
+}
+.select2-container .tw-s2-selection .select2-selection__rendered {
+    @apply text-gray-800;
+}
+.select2-container .tw-s2-selection .select2-selection__placeholder {
+    @apply text-gray-400;
+}
+.select2-container .tw-s2-selection .select2-selection__arrow {
+    @apply text-gray-400;
+}
+
+/* Dropdown list */
+.tw-s2-dropdown {
+    @apply bg-white text-gray-800 border border-gray-300 rounded;
+}
+.tw-s2-dropdown .select2-search__field {
+    @apply bg-white text-gray-800 border border-gray-300 rounded px-2 py-1;
+}
+.tw-s2-dropdown .select2-results__option--highlighted {
+    @apply bg-gray-100 text-gray-900;
+}
+.tw-s2-dropdown .select2-results__option[aria-selected="true"] {
+    @apply bg-gray-200 text-gray-900;
+}
+
+/* ===== Dark mode overrides ===== */
+.dark .select2-container .tw-s2-selection {
+    @apply bg-zinc-800 text-white border-zinc-700;
+}
+.dark .select2-container .tw-s2-selection .select2-selection__rendered {
+    @apply text-white;
+}
+.dark .select2-container .tw-s2-selection .select2-selection__placeholder {
+    @apply text-zinc-400;
+}
+.dark .tw-s2-dropdown {
+    @apply bg-zinc-800 text-white border-zinc-700;
+}
+.dark .tw-s2-dropdown .select2-search__field {
+    @apply bg-zinc-800 text-white border-zinc-700;
+}
+.dark .tw-s2-dropdown .select2-results__option--highlighted {
+    @apply bg-zinc-700 text-white;
+}
+.dark .tw-s2-dropdown .select2-results__option[aria-selected="true"] {
+    @apply bg-zinc-700 text-white;
+}

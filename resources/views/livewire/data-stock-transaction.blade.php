@@ -518,41 +518,87 @@
                             {{-- Baris 1: Barang & Konversi --}}
                             <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
                                 {{-- Barang --}}
-                                <div class="md:col-span-3">
+                                <div class="md:col-span-3" wire:key="row-{{ $i }}-picker">
                                     @if ($type === 'in' || ($type === 'retur' && $subtype === 'retur_out'))
                                         {{-- IN / RETUR OUT: pilih dari itemSuppliers --}}
-                                        <select wire:model.live="items.{{ $i }}.item_supplier_id"
-                                            wire:change="setItemSupplier({{ $i }}, $event.target.value)"
-                                            class="w-full border rounded p-2 bg-white text-gray-800 border-gray-300 dark:bg-zinc-800 dark:text-white dark:border-zinc-700 overflow-y-auto max-h-60">
-                                            <option value="">-- Pilih Barang (Supplier) --</option>
-                                            @foreach ($itemSuppliers as $is)
-                                                <option value="{{ $is->id }}">
-                                                    {{ $is->item->name }} {{ $is->item->brand->name ?? '' }}
-                                                </option>
-                                            @endforeach
-                                        </select>
+                                        <div x-data x-init="const el = $('#is-{{ $i }}');
+                                        const init = () => el.select2({
+                                            dropdownParent: $(el).closest('.fixed.z-50'),
+                                            width: '100%',
+                                            placeholder: '-- Pilih Barang (Supplier) --',
+                                            selectionCssClass: 'tw-s2-selection',
+                                            dropdownCssClass: 'tw-s2-dropdown'
+                                        });
+                                        
+                                        init();
+                                        el.on('change', (e) => {
+                                            const val = $(e.target).val();
+                                            @this.set('items.{{ $i }}.item_supplier_id', val);
+                                            @this.call('setItemSupplier', {{ $i }}, val);
+                                        });
+                                        
+                                        // set selected saat edit
+                                        el.val(@this.get('items.{{ $i }}.item_supplier_id') ?? '').trigger('change');
+                                        
+                                        // reinit saat Livewire re-render
+                                        Livewire.on('reinitItemSelect', () => {
+                                            el.select2('destroy');
+                                            init();
+                                            el.val(@this.get('items.{{ $i }}.item_supplier_id') ?? '').trigger('change');
+                                        });" wire:ignore>
+                                            <select id="is-{{ $i }}" class="w-full">
+                                                <option value="">-- Pilih Barang (Supplier) --</option>
+                                                @foreach ($itemSuppliers as $is)
+                                                    <option value="{{ $is->id }}">{{ $is->item->name }}
+                                                        {{ $is->item->brand->name ?? '' }}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+
                                         @error("items.$i.item_supplier_id")
                                             <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span>
                                         @enderror
                                     @else
                                         {{-- OUT / RETUR IN: pilih dari master Items --}}
-                                        <select wire:model.live="items.{{ $i }}.item_id"
-                                            wire:change="setItemForOut({{ $i }}, $event.target.value)"
-                                            class="w-full border rounded p-2 bg-white text-gray-800 border-gray-300 dark:bg-zinc-800 dark:text-white dark:border-zinc-700 overflow-y-auto max-h-60">
-                                            <option value="">-- Pilih Barang --</option>
-                                            @foreach ($itemsMaster as $im)
-                                                <option value="{{ $im->id }}">
-                                                    {{ $im->name }} {{ $im->brand->name ?? '' }}
-                                                </option>
-                                            @endforeach
-                                        </select>
+                                        <div x-data x-init="const el = $('#im-{{ $i }}');
+                                        const init = () => el.select2({
+                                            dropdownParent: $(el).closest('.fixed.z-50'),
+                                            width: '100%',
+                                            placeholder: '-- Pilih Barang --',
+                                            selectionCssClass: 'tw-s2-selection',
+                                            dropdownCssClass: 'tw-s2-dropdown'
+                                        });
+                                        
+                                        init();
+                                        el.on('change', (e) => {
+                                            const val = $(e.target).val();
+                                            @this.set('items.{{ $i }}.item_id', val);
+                                            @this.call('setItemForOut', {{ $i }}, val);
+                                        });
+                                        
+                                        el.val(@this.get('items.{{ $i }}.item_id') ?? '').trigger('change');
+                                        
+                                        Livewire.on('reinitItemSelect', () => {
+                                            el.select2('destroy');
+                                            init();
+                                            el.val(@this.get('items.{{ $i }}.item_id') ?? '').trigger('change');
+                                        });" wire:ignore>
+                                            <select id="im-{{ $i }}" class="w-full">
+                                                <option value="">-- Pilih Barang --</option>
+                                                @foreach ($itemsMaster as $im)
+                                                    <option value="{{ $im->id }}">{{ $im->name }}
+                                                        {{ $im->brand->name ?? '' }}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+
                                         @error("items.$i.item_id")
                                             <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span>
                                         @enderror
                                     @endif
                                 </div>
 
-                                {{-- Konversi Satuan (tampilkan kalau OUT, OPNAME, atau RETUR IN) --}}
+                                {{-- Konversi Satuan (tetap seperti punyamu) --}}
                                 @if (in_array($type, ['out', 'opname']) || ($type === 'retur' && $subtype === 'retur_in'))
                                     <div class="md:col-span-2">
                                         <select wire:model.live="items.{{ $i }}.selected_unit_id"
@@ -569,7 +615,6 @@
                                     </div>
                                 @endif
                             </div>
-
 
                             {{-- Baris 2: Qty, Harga, Subtotal, Hapus --}}
                             <div class="flex flex-col md:flex-row justify-between gap-3 items-start">
