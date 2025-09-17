@@ -509,7 +509,12 @@
                     <h3 class="font-semibold mb-2">Detail Barang</h3>
                     @foreach ($items as $i => $row)
                         @php
-                            $itemSupplier = $itemSuppliers->firstWhere('id', $row['item_supplier_id'] ?? null);
+                            $supplierId = $supplier_id ?? null;
+
+                            // filter ItemSupplier sesuai supplier yang dipilih
+                            $itemSuppliersForTx = $supplierId
+                                ? $itemSuppliers->where('supplier_id', $supplierId)
+                                : collect();
                             $conversions = $row['unit_conversions'] ?? [];
                         @endphp
                         <div
@@ -520,43 +525,57 @@
                                 {{-- Barang --}}
                                 <div class="md:col-span-3" wire:key="row-{{ $i }}-picker">
                                     @if ($type === 'in' || ($type === 'retur' && $subtype === 'retur_out'))
-                                        {{-- IN / RETUR OUT: pilih dari itemSuppliers --}}
-                                        <div class="relative" wire:ignore x-data x-init="const $el = $('#is-{{ $i }}');
-                                        const $wrap = $el.parent(); // wrapper per-row (relative)
-                                        
-                                        const init = () => $el.select2({
-                                            dropdownParent: $wrap, // <— tempel ke wrapper baris ini
-                                            width: '100%', // follow width wrapper (w-full)
-                                            placeholder: '-- Pilih Barang (Supplier) --',
-                                            // Tailwind langsung di elemen dropdown Select2 (tanpa CSS custom)
-                                            dropdownCssClass: 'z-[9999] bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded shadow',
-                                            selectionCssClass: 'w-full'
-                                        });
-                                        
-                                        init();
-                                        
-                                        $el.on('change', e => {
-                                            const val = $(e.target).val();
-                                            @this.set('items.{{ $i }}.item_supplier_id', val);
-                                            @this.call('setItemSupplier', {{ $i }}, val);
-                                        });
-                                        
-                                        // set selected saat edit
-                                        $el.val(@this.get('items.{{ $i }}.item_supplier_id') ?? '').trigger('change');
-                                        
-                                        // re-init saat Livewire re-render
-                                        Livewire.on('reinitItemSelect', () => {
-                                            $el.select2('destroy');
-                                            init();
-                                            $el.val(@this.get('items.{{ $i }}.item_supplier_id') ?? '').trigger('change');
-                                        });">
+                                        {{-- IN / RETUR OUT: pilih dari ItemSupplier (tergantung supplier) --}}
+                                        <div class="md:col-span-3"
+                                            wire:key="row-{{ $i }}-picker-{{ $supplier_id ?? 'none' }}"
+                                            wire:ignore x-data x-init="const $el = $('#is-{{ $i }}');
+                                            const $wrap = $el.parent();
+                                            const hasSupplier = () => Boolean(@this.get('supplier_id'));
+                                            
+                                            function initS2() {
+                                                if ($el.data('select2')) $el.select2('destroy');
+                                                $el.select2({
+                                                    dropdownParent: $wrap, // penting agar dropdown tetap di dalam modal
+                                                    width: '100%', // biar full width
+                                                });
+                                            
+                                                // sinkron ke Livewire
+                                                $el.off('change.s2').on('change.s2', (e) => {
+                                                    const val = $(e.target).val();
+                                                    @this.set('items.{{ $i }}.item_supplier_id', val);
+                                                    @this.call('setItemSupplier', {{ $i }}, val);
+                                                });
+                                            
+                                                // enable/disable kalau belum pilih supplier
+                                                $el.prop('disabled', !hasSupplier());
+                                            
+                                                // set nilai saat edit
+                                                $el.val(@this.get('items.{{ $i }}.item_supplier_id') ?? '')
+                                                    .trigger('change.select2');
+                                            }
+                                            
+                                            // init pertama
+                                            initS2();
+                                            
+                                            // setiap Livewire selesai render (mis. supplier berubah) → re-init
+                                            Livewire.hook('message.processed', () => initS2());
+                                            
+                                            // kalau dari PHP kamu dispatch('reinitItemSelect') → tetap aman
+                                            window.addEventListener('reinitItemSelect', () => initS2());">
                                             <select id="is-{{ $i }}" class="w-full">
-                                                <option value="">-- Pilih Barang (Supplier) --</option>
-                                                @foreach ($itemSuppliers as $is)
-                                                    <option value="{{ $is->id }}">{{ $is->item->name }}
-                                                        {{ $is->item->brand->name ?? '' }}</option>
+                                                <option value="">
+                                                    {{ $supplier_id ? '-- Pilih Barang (Supplier) --' : 'Pilih supplier dahulu' }}
+                                                </option>
+                                                @foreach ($supplier_id ? $itemSuppliers->where('supplier_id', $supplier_id) : collect() as $is)
+                                                    <option value="{{ $is->id }}" @selected(($items[$i]['item_supplier_id'] ?? null) == $is->id)>
+                                                        {{ $is->item->name }} {{ $is->item->brand->name ?? '' }}
+                                                    </option>
                                                 @endforeach
                                             </select>
+
+                                            @error("items.$i.item_supplier_id")
+                                                <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span>
+                                            @enderror
                                         </div>
 
                                         @error("items.$i.item_supplier_id")
@@ -570,9 +589,8 @@
                                         const init = () => $el.select2({
                                             dropdownParent: $wrap,
                                             width: '100%',
-                                            placeholder: '-- Pilih Barang --',
-                                            dropdownCssClass: 'z-[9999] bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded shadow',
-                                            selectionCssClass: 'w-full'
+                                            selectionCssClass: 'select2-tw', // <= kustom
+                                            dropdownCssClass: 'select2-tw z-[9999]' // <= kustom
                                         });
                                         
                                         init();
@@ -642,10 +660,9 @@
 
                                 {{-- Qty --}}
                                 <div class="relative">
-                                    <input type="number" wire:model.live="items.{{ $i }}.quantity"
-                                        class="w-full border rounded p-2 pr-16  bg-white text-gray-800 border-gray-300 dark:bg-zinc-800 dark:text-white dark:border-zinc-700"
+                                    <input type="number" wire:model.lazy="items.{{ $i }}.quantity"
+                                        class="w-full border rounded p-2 pr-16 bg-white text-gray-800 border-gray-300 dark:bg-zinc-800 dark:text-white dark:border-zinc-700"
                                         min="1" placeholder="Qty">
-
                                     <span class="absolute top-2 right-2 text-sm text-zinc-400">
                                         {{ $row['unit_symbol'] ?? '-' }}
                                     </span>
@@ -689,13 +706,12 @@
                                     </div>
                                 @endif
 
+                                {{-- Harga --}}
                                 @if ($type !== 'opname')
-                                    {{-- Harga --}}
                                     <div class="relative">
-                                        <input type="number" wire:model.live="items.{{ $i }}.unit_price"
-                                            class="w-full border rounded p-2 pr-16  bg-white text-gray-800 border-gray-300 dark:bg-zinc-800 dark:text-white dark:border-zinc-700"
-                                            step="0.01">
-
+                                        <input type="number" wire:model.lazy="items.{{ $i }}.unit_price"
+                                            class="w-full border rounded p-2 pr-16 bg-white text-gray-800 border-gray-300 dark:bg-zinc-800 dark:text-white dark:border-zinc-700"
+                                            step="0.01" placeholder="Harga">
                                         <span class="absolute top-2 right-2 text-sm text-zinc-400">
                                             {{ $row['unit_symbol'] ?? '-' }}
                                         </span>
@@ -705,11 +721,11 @@
                                 {{-- Subtotal & Tombol Hapus Rata Kanan --}}
                                 <div class="flex justify-end items-center mt-2 text-white gap-4">
                                     @if ($type !== 'opname')
+                                        {{-- Subtotal (ambil dari state, bukan dihitung live di Blade) --}}
                                         <div class="flex items-center gap-2 text-green-400">
                                             <i class="fas fa-money-bill-wave"></i>
                                             <span>
-                                                Rp
-                                                {{ number_format((float) ($row['quantity'] ?? 0) * (float) ($row['unit_price'] ?? 0), 0, ',', '.') }}
+                                                Rp {{ number_format((float) ($row['subtotal'] ?? 0), 0, ',', '.') }}
                                             </span>
                                         </div>
                                     @endif

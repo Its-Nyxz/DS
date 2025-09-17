@@ -85,6 +85,9 @@ class DataStockTransaction extends Component
             $supplier = Supplier::where('name', $value)->first();
             $this->supplier_id = $supplier?->id;
             $this->supplier_name = $value;
+
+            // reset dropdown item supplier
+            $this->updatedSupplierId($this->supplier_id);
         }
         // Hapus suggestions setelah dipilih
         $this->suggestions[$field] = [];
@@ -146,12 +149,24 @@ class DataStockTransaction extends Component
         return view('livewire.data-stock-transaction', [
             'transactions' => $transactions,
             'suppliers' => Supplier::all(),
-            'itemSuppliers' => ItemSupplier::with('item', 'item.brand', 'item.unit')
-                ->get()
-                ->unique('item_id')
-                ->values(),
+            'itemSuppliers' => ItemSupplier::with('item', 'item.brand', 'item.unit')->get(),
             'itemsMaster' => Item::with('brand', 'unit')->orderBy('name')->get(),
         ]);
+    }
+
+    public function updatedSupplierId($value)
+    {
+        // kosongkan pilihan item supplier di semua baris
+        foreach ($this->items as $i => $row) {
+            $this->items[$i]['item_supplier_id'] = null;
+            $this->items[$i]['unit_conversions'] = [];
+            $this->items[$i]['selected_unit_id'] = null;
+            $this->items[$i]['unit_symbol'] = '-';
+            // tidak ubah qty/price agar input user tidak hilang
+        }
+
+        // trigger re-init select2 pada Blade
+        $this->dispatch('reinitItemSelect');
     }
 
     public function updatingSearch()
