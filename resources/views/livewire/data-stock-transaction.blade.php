@@ -521,31 +521,35 @@
                                 <div class="md:col-span-3" wire:key="row-{{ $i }}-picker">
                                     @if ($type === 'in' || ($type === 'retur' && $subtype === 'retur_out'))
                                         {{-- IN / RETUR OUT: pilih dari itemSuppliers --}}
-                                        <div x-data x-init="const el = $('#is-{{ $i }}');
-                                        const init = () => el.select2({
-                                            dropdownParent: $(el).closest('.fixed.z-50'),
-                                            width: '100%',
+                                        <div class="relative" wire:ignore x-data x-init="const $el = $('#is-{{ $i }}');
+                                        const $wrap = $el.parent(); // wrapper per-row (relative)
+                                        
+                                        const init = () => $el.select2({
+                                            dropdownParent: $wrap, // <— tempel ke wrapper baris ini
+                                            width: '100%', // follow width wrapper (w-full)
                                             placeholder: '-- Pilih Barang (Supplier) --',
-                                            selectionCssClass: 'tw-s2-selection',
-                                            dropdownCssClass: 'tw-s2-dropdown'
+                                            // Tailwind langsung di elemen dropdown Select2 (tanpa CSS custom)
+                                            dropdownCssClass: 'z-[9999] bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded shadow',
+                                            selectionCssClass: 'w-full'
                                         });
                                         
                                         init();
-                                        el.on('change', (e) => {
+                                        
+                                        $el.on('change', e => {
                                             const val = $(e.target).val();
                                             @this.set('items.{{ $i }}.item_supplier_id', val);
                                             @this.call('setItemSupplier', {{ $i }}, val);
                                         });
                                         
                                         // set selected saat edit
-                                        el.val(@this.get('items.{{ $i }}.item_supplier_id') ?? '').trigger('change');
+                                        $el.val(@this.get('items.{{ $i }}.item_supplier_id') ?? '').trigger('change');
                                         
-                                        // reinit saat Livewire re-render
+                                        // re-init saat Livewire re-render
                                         Livewire.on('reinitItemSelect', () => {
-                                            el.select2('destroy');
+                                            $el.select2('destroy');
                                             init();
-                                            el.val(@this.get('items.{{ $i }}.item_supplier_id') ?? '').trigger('change');
-                                        });" wire:ignore>
+                                            $el.val(@this.get('items.{{ $i }}.item_supplier_id') ?? '').trigger('change');
+                                        });">
                                             <select id="is-{{ $i }}" class="w-full">
                                                 <option value="">-- Pilih Barang (Supplier) --</option>
                                                 @foreach ($itemSuppliers as $is)
@@ -560,29 +564,32 @@
                                         @enderror
                                     @else
                                         {{-- OUT / RETUR IN: pilih dari master Items --}}
-                                        <div x-data x-init="const el = $('#im-{{ $i }}');
-                                        const init = () => el.select2({
-                                            dropdownParent: $(el).closest('.fixed.z-50'),
+                                        <div class="relative" wire:ignore x-data x-init="const $el = $('#im-{{ $i }}');
+                                        const $wrap = $el.parent();
+                                        
+                                        const init = () => $el.select2({
+                                            dropdownParent: $wrap,
                                             width: '100%',
                                             placeholder: '-- Pilih Barang --',
-                                            selectionCssClass: 'tw-s2-selection',
-                                            dropdownCssClass: 'tw-s2-dropdown'
+                                            dropdownCssClass: 'z-[9999] bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded shadow',
+                                            selectionCssClass: 'w-full'
                                         });
                                         
                                         init();
-                                        el.on('change', (e) => {
+                                        
+                                        $el.on('change', e => {
                                             const val = $(e.target).val();
                                             @this.set('items.{{ $i }}.item_id', val);
                                             @this.call('setItemForOut', {{ $i }}, val);
                                         });
                                         
-                                        el.val(@this.get('items.{{ $i }}.item_id') ?? '').trigger('change');
+                                        $el.val(@this.get('items.{{ $i }}.item_id') ?? '').trigger('change');
                                         
                                         Livewire.on('reinitItemSelect', () => {
-                                            el.select2('destroy');
+                                            $el.select2('destroy');
                                             init();
-                                            el.val(@this.get('items.{{ $i }}.item_id') ?? '').trigger('change');
-                                        });" wire:ignore>
+                                            $el.val(@this.get('items.{{ $i }}.item_id') ?? '').trigger('change');
+                                        });">
                                             <select id="im-{{ $i }}" class="w-full">
                                                 <option value="">-- Pilih Barang --</option>
                                                 @foreach ($itemsMaster as $im)
@@ -591,6 +598,7 @@
                                                 @endforeach
                                             </select>
                                         </div>
+
 
                                         @error("items.$i.item_id")
                                             <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span>
